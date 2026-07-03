@@ -6,7 +6,7 @@ spring:
     name: trade-broker-service
 
   datasource:
-    url: jdbc:mysql://host.docker.internal:3307/tradebroker_db
+    url: jdbc:mysql://host.docker.internal:3307/tradding_db
     username: root
     password: root
 

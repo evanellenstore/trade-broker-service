@@ -1,0 +1,625 @@
+package com.trade.broker.algo;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import com.angelbroking.smartapi.SmartConnect;
+import com.angelbroking.smartapi.http.exceptions.SmartAPIException;
+import com.angelbroking.smartapi.models.Order;
+import com.angelbroking.smartapi.models.OrderParams;
+import com.angelbroking.smartapi.models.TokenSet;
+import com.angelbroking.smartapi.models.User;
+import com.angelbroking.smartapi.smartstream.models.Depth;
+import com.angelbroking.smartapi.smartstream.models.ExchangeType;
+import com.angelbroking.smartapi.smartstream.models.LTP;
+import com.angelbroking.smartapi.smartstream.models.Quote;
+import com.angelbroking.smartapi.smartstream.models.SmartStreamError;
+import com.angelbroking.smartapi.smartstream.models.SmartStreamSubsMode;
+import com.angelbroking.smartapi.smartstream.models.SnapQuote;
+import com.angelbroking.smartapi.smartstream.models.TokenID;
+import com.angelbroking.smartapi.smartstream.ticker.SmartStreamListener;
+import com.angelbroking.smartapi.smartstream.ticker.SmartStreamTicker;
+import com.angelbroking.smartapi.utils.Constants;
+import com.neovisionaries.ws.client.WebSocketException;
+import com.trade.broker.constant.TRADEConstants;
+import com.trade.broker.entity.DBTokenDetail;
+import com.trade.broker.entity.TradeEntryStock;
+import com.trade.broker.exception.TradeScheduleBusinessException;
+import com.trade.broker.service.TokenService;
+import com.trade.broker.util.TRADEDateUtil;
+
+@Component
+public class SmartApiLogin {
+
+	public static final String HISTORICAL = "Historical";
+	public static final String MARKET = "Market";
+	public static final String TRADING = "Trading";
+	public static final String PUBLISHER = "Publisher";
+	public static final String CLIENTID = "ClientId";
+	public static final String MPIN = "mpin";
+	public static final String APIKEY = "APIKEY";
+
+	static SmartConnect smartConnect = new SmartConnect();
+	
+	User user;
+
+
+	@Autowired
+	private TokenService tokenService;
+
+	/**
+	 * 
+	 * @param totp
+	 * @return
+	 */
+	public DBTokenDetail proccessMarketLogin(String totp) {
+		DBTokenDetail dbTokenDetail = new DBTokenDetail();
+
+		try {
+
+			smartConnect = new SmartConnect(getKey().get(SmartApiLogin.APIKEY));
+
+			user = smartConnect.generateSession(getKey().get(SmartApiLogin.CLIENTID),
+					getKey().get(SmartApiLogin.MPIN), totp);
+
+			smartConnect.setAccessToken(user.getAccessToken());
+			smartConnect.setRefreshToken(user.getRefreshToken());
+
+		
+
+			// Save tokens
+			String accessToken = user.getAccessToken();
+			String refreshToken = user.getRefreshToken();
+			String feedToken = user.getFeedToken();
+			
+
+			System.out.println("Access Token: " + accessToken);
+			System.out.println("Refresh Token: " + refreshToken);
+			System.out.println("Feed Token: " + feedToken);
+
+			 //smartConnect = this.getSmartConnect(
+			//		getKey().get(SmartApiLogin.APIKEY),
+				//	getKey().get(SmartApiLogin.CLIENTID),
+				//	getKey().get(SmartApiLogin.MPIN),
+				//	totp);
+
+			//user=smartConnect.getProfile();
+
+			dbTokenDetail.setAccesstoken(user.getAccessToken());
+			dbTokenDetail.setRefreshtoken(user.getRefreshToken());
+			 dbTokenDetail.setFeedtoken(user.getFeedToken());
+			dbTokenDetail.setTokenexpried("N");
+			dbTokenDetail.setClientId(user.getUserId());
+			dbTokenDetail.setAppName("smartapi");
+
+			System.out.println("Logged in successfully!");
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return dbTokenDetail;
+	}
+
+	/**
+	 * 
+	 * @param tradeEntryStock
+	 * @param lotsize
+	 * @param lotQunatity
+	 * @return
+	 */
+	public Order placeSellOrder(TradeEntryStock tradeEntryStock, long lotsize, int lotQunatity) {
+
+		// testing purpose manipulating data
+		/*
+		 * tradeEntryStock.setOptionstrikeprice(1);
+		 * tradeEntryStock.setOptionsymboltoken("48576");
+		 * tradeEntryStock.setOptionorginaltradingsymbol("171NSETEST27NOV36FUT");
+		 * lotsize=50;
+		 * lotQunatity=2;
+		 */
+
+		Order order = null;
+		// int oStrikeprice=tradeEntryStock.getOptionstrikeprice();
+		String oSymboltoken = tradeEntryStock.getOptionsymboltoken();
+		// String stockname=tradeEntryStock.getOrginaltradingsymbol();
+		String optionorginaltradingsymbol = tradeEntryStock.getOptionorginaltradingsymbol();
+		// int optionPrice=oStrikeprice;
+		// double doubleoOtionPrice = (double) optionPrice;
+
+		OrderParams orderParams = new OrderParams();
+		orderParams.variety = Constants.VARIETY_NORMAL;
+		orderParams.exchange = "NFO";
+		orderParams.tradingsymbol = optionorginaltradingsymbol;
+		orderParams.symboltoken = oSymboltoken;
+		orderParams.transactiontype = Constants.TRANSACTION_TYPE_SELL;
+		orderParams.ordertype = Constants.ORDER_TYPE_MARKET;
+		// orderParams.producttype = Constants.PRODUCT_CARRYFORWARD;
+		orderParams.duration = Constants.DURATION_DAY;
+		int intlotsize = (int) lotsize;
+		orderParams.quantity = lotQunatity * intlotsize;
+
+		if (TRADEConstants.TRADE_PLACE_ORDER_LIVE) {
+			order = smartConnect.placeOrder(orderParams, Constants.VARIETY_REGULAR);
+		} else {
+			order = new Order();
+			order.orderId = UUID.randomUUID().toString();
+		}
+
+		return order;
+
+	}
+
+	/**
+	 * 
+	 * @param tradeEntryStock
+	 * @param lotsize
+	 * @param lotQunatity
+	 * @return
+	 */
+	public Order placeBuyOrder(TradeEntryStock tradeEntryStock, long lotsize, int lotQunatity) {
+
+		// testing purpose manipulating data
+		/*
+		 * tradeEntryStock.setOptionstrikeprice(1);
+		 * tradeEntryStock.setOptionsymboltoken("48576");
+		 * tradeEntryStock.setOptionorginaltradingsymbol("171NSETEST27NOV36FUT");
+		 * lotsize=50;
+		 * lotQunatity=2;
+		 */
+
+		Order order = null;
+		// int oStrikeprice=tradeEntryStock.getOptionstrikeprice();
+		String oSymboltoken = tradeEntryStock.getOptionsymboltoken();
+		// String stockname=tradeEntryStock.getOrginaltradingsymbol();
+		String optionorginaltradingsymbol = tradeEntryStock.getOptionorginaltradingsymbol();
+		// int optionPrice=oStrikeprice;
+		// double doubleoOtionPrice = (double) optionPrice;
+
+		OrderParams orderParams = new OrderParams();
+		orderParams.variety = Constants.VARIETY_NORMAL;
+		orderParams.exchange = "NFO";
+		orderParams.tradingsymbol = optionorginaltradingsymbol;
+		orderParams.symboltoken = oSymboltoken;
+		orderParams.transactiontype = Constants.TRANSACTION_TYPE_BUY;
+		// orderParams.ordertype = Constants.ORDER_TYPE_LIMIT;
+		orderParams.ordertype = Constants.ORDER_TYPE_MARKET;
+		orderParams.producttype = Constants.PRODUCT_CARRYFORWARD;
+		orderParams.duration = Constants.DURATION_DAY;
+		int intlotsize = (int) lotsize;
+		orderParams.quantity = lotQunatity * intlotsize;
+
+		// orderParams.price = doubleoOtionPrice;
+		orderParams.squareoff = "0";
+		orderParams.stoploss = "0";
+
+		if (TRADEConstants.TRADE_PLACE_ORDER_LIVE) {
+			order = smartConnect.placeOrder(orderParams, Constants.VARIETY_REGULAR);
+		} else {
+			order = new Order();
+			order.orderId = UUID.randomUUID().toString();
+		}
+
+		return order;
+
+	}
+
+	/**
+	 * 
+	 * @param exchange
+	 * @param searchscrip
+	 * @return
+	 * @throws IOException
+	 * @throws SmartAPIException
+	 */
+
+	public String getSearchScrip(String exchange, String searchscrip) throws IOException, SmartAPIException {
+		JSONObject payload = new JSONObject();
+		payload.put("exchange", exchange);
+		payload.put("searchscrip", searchscrip);
+
+		return smartConnect.getSearchScrip(payload);
+
+		// System.err.println("=======getSearchScrip====="+response);
+	}
+
+	/**
+	 * 
+	 * @param exchange
+	 * @param type
+	 * @return
+	 * @throws IOException
+	 * @throws SmartAPIException
+	 */
+	public JSONObject getGainersLosers(String exchange, String type) throws IOException, SmartAPIException {
+
+		JSONObject params = new JSONObject();
+		// params.put("exchange", exchange);
+		params.put("datatype", "PercOIGainers");
+		params.put("expirytype", "NEAR");
+		JSONObject response = smartConnect.gainersLosers(params);
+		return response;
+
+	}
+
+	/**
+	 * 
+	 * @param topGainerTradeEntryStock
+	 * @param topLooserTradeEntryStock
+	 * @param candleType
+	 */
+	public void getSocketConnection(List<TradeEntryStock> topGainerTradeEntryStock,
+			List<TradeEntryStock> topLooserTradeEntryStock, String candleType) {
+
+		SmartStreamListener smartStreamListener = new SmartStreamListener() {
+			@Override
+			public void onLTPArrival(LTP ltp) {
+				long lastTradedPrice = ltp.getLastTradedPrice();
+				double ltpvalue = (double) lastTradedPrice;
+				double finalltpvalue = ltpvalue / 100;
+				System.out.println("ltp value==========>" + ltp.getExchangeType() + ", LastTradedPrice: "
+						+ finalltpvalue + ", " + ", getToken: " + ltp.getToken());
+			}
+
+			@Override
+			public void onQuoteArrival(Quote quote) {
+				// Handle quote arrival if needed
+				System.err.println("on Quote Arrival....");
+			}
+
+			@Override
+			public void onSnapQuoteArrival(SnapQuote snapQuote) {
+				// Handle snap quote arrival if needed
+				System.err.println("on Snap Quote Arrival....");
+			}
+
+			@Override
+			public void onDepthArrival(Depth depth) {
+				// Handle depth arrival if needed
+				System.err.println("on Depth Arrival....");
+			}
+
+			@Override
+			public void onConnected() {
+				System.out.println("Connected successfully");
+			}
+
+			@Override
+			public void onDisconnected() {
+				// Handle disconnection if needed
+				System.err.println("on Disconnected....");
+			}
+
+			@Override
+			public void onError(SmartStreamError smartStreamError) {
+				System.err.println("Stream error: " + smartStreamError.getException().getMessage());
+			}
+
+			@Override
+			public void onPong() {
+				// Handle pong response if needed
+				System.err.println("on Pong....");
+			}
+
+			@Override
+			public SmartStreamError onErrorCustom() {
+				return null;
+			}
+		};
+
+		DBTokenDetail dbtoken = tokenService.getTokenAppName(TRADEConstants.SMART_API,
+				TRADEConstants.M_TOKEN_EXPREIED_NO);
+
+		TokenSet tokenSet = smartConnect.renewAccessToken(dbtoken.getAccesstoken(), dbtoken.getRefreshtoken());
+
+		SmartStreamTicker smartStreamTicker = new SmartStreamTicker(getKey().get(SmartApiLogin.CLIENTID),
+				tokenSet.getFeedToken(), smartStreamListener);
+		try {
+			smartStreamTicker.connect();
+		} catch (WebSocketException e) {
+
+			e.printStackTrace();
+		}
+		Boolean connection = smartStreamTicker.isConnectionOpen();
+		System.out.println("Connection open: " + connection);
+
+		Set<TokenID> tokenIdSet = new HashSet<>();
+
+		if (TRADEConstants.NIFITY50_CANDLE_GREEN_CALCULATED.equalsIgnoreCase(candleType)) {
+			if (topGainerTradeEntryStock != null) {
+				for (TradeEntryStock tradeEntryStock : topGainerTradeEntryStock) {
+					String token = tradeEntryStock.getStocksymboltoken();
+					// String exchange=tradeEntryStock.getExchange();
+					tokenIdSet.add(new TokenID(ExchangeType.NSE_CM, token));
+				}
+			}
+
+			if (topLooserTradeEntryStock != null) {
+				for (TradeEntryStock tradeEntryStock : topLooserTradeEntryStock) {
+					String token = tradeEntryStock.getStocksymboltoken();
+					// String exchange=tradeEntryStock.getExchange();
+					tokenIdSet.add(new TokenID(ExchangeType.NSE_CM, token));
+				}
+			}
+
+		} else if (TRADEConstants.NIFITY50_CANDLE_RED_CALCULATED.equalsIgnoreCase(candleType)) {
+			if (topLooserTradeEntryStock != null) {
+				for (TradeEntryStock tradeEntryStock : topLooserTradeEntryStock) {
+					String token = tradeEntryStock.getStocksymboltoken();
+					// String exchange=tradeEntryStock.getExchange();
+					tokenIdSet.add(new TokenID(ExchangeType.NSE_CM, token));
+				}
+			}
+
+		}
+
+		for (TokenID tokenID : tokenIdSet) {
+
+			System.err.println(tokenID.getToken());
+
+		}
+
+		smartStreamTicker.subscribe(SmartStreamSubsMode.LTP, tokenIdSet);
+
+	}
+
+	/**
+	 * 
+	 * @param totp
+	 * @return
+	 */
+	public User proccessHistoryLogin(String totp) {
+
+		User huser = this.getHistorySmartConnect(getKey().get(SmartApiLogin.CLIENTID), getKey().get(SmartApiLogin.MPIN),
+				totp);
+
+		System.out.println("Logged in successfully!");
+		System.out.println("History Access Token: " + huser.getAccessToken());
+		System.out.println("History Refresh Token: " + huser.getRefreshToken());
+
+		return huser;
+	}
+
+	/**
+	 * 
+	 */
+	public String proccessReLogin() {
+		String result = "";
+		DBTokenDetail dbtoken = tokenService.getTokenAppName(TRADEConstants.SMART_API,
+				TRADEConstants.M_TOKEN_EXPREIED_NO);
+
+		if (dbtoken != null) {
+			smartConnect = new SmartConnect(getKey().get(SmartApiLogin.APIKEY));
+			TokenSet mTokenSet = smartConnect.renewAccessToken(dbtoken.getAccesstoken(), dbtoken.getRefreshtoken());
+			smartConnect.setAccessToken(mTokenSet.getAccessToken());
+			smartConnect.setRefreshToken(mTokenSet.getRefreshToken());
+			smartConnect.setUserId(mTokenSet.getUserId());
+
+			System.err.println("Market Re-Logged in successfully!");
+			System.err.println("Market Access Token: " + mTokenSet.getAccessToken());
+			// System.out.println("Market Refresh Token: " + mTokenSet.getRefreshToken());
+			// System.out.println("Market Feed Token: " + mTokenSet.getFeedToken());
+
+			DBTokenDetail newdbtoken = new DBTokenDetail();
+			newdbtoken.setAccesstoken(mTokenSet.getAccessToken());
+			newdbtoken.setRefreshtoken(mTokenSet.getRefreshToken());
+			newdbtoken.setFeedtoken(mTokenSet.getFeedToken());
+			newdbtoken.setTokenexpried("N");
+			newdbtoken.setAppName(TRADEConstants.SMART_API);
+			newdbtoken.setUpdTimestamp(TRADEDateUtil.getCurrentJavaSqlTimestamp());
+			tokenService.saveToken(newdbtoken);
+
+			// getRestData(newdbtoken.getAccesstoken(),getKey().get(SmartApiLogin.MARKET));
+
+			result = "re-login successfully";
+		} else {
+			result = "not re-login! Please login with fresh!";
+		}
+		return result;
+
+	}
+
+	public void getRestData(String token, String apiKey) {
+
+		try {
+
+			String accessToken = token;
+
+			// Example endpoint (if exposed by AngleOne)
+			String endpoint = "https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/topGainersLosers";
+
+			URL url = new URL(endpoint);
+			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+			conn.setRequestMethod("GET");
+			conn.setRequestProperty("X-API-KEY", apiKey);
+			conn.setRequestProperty("Authorization", "Bearer " + accessToken);
+			conn.setRequestProperty("Accept", "application/json");
+
+			BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+			String inputLine;
+			StringBuffer response = new StringBuffer();
+
+			while ((inputLine = in.readLine()) != null) {
+				response.append(inputLine);
+			}
+			in.close();
+
+			System.out.println("Top Gainers/Losers Response: " + response.toString());
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	/**
+	 * 
+	 */
+	public void logout() {
+		DBTokenDetail dbtoken = tokenService.getTokenAppName(TRADEConstants.SMART_API, "N");
+		if (dbtoken != null) {
+			dbtoken.setTokenexpried("Y");
+			tokenService.saveToken(dbtoken);
+		}
+		smartConnect.logout();
+	
+
+	}
+
+	/**
+	 * 
+	 * @return
+	 * @throws SmartAPIException
+	 * @throws IOException
+	 */
+	public JSONArray getCandleData(String symboltoken, String interval, String fromdate, String todate) {
+
+		JSONObject requestObejct = new JSONObject();
+		requestObejct.put("exchange", "NSE");
+		requestObejct.put("symboltoken", symboltoken);
+		requestObejct.put("interval", interval);
+		requestObejct.put("fromdate", fromdate);
+		requestObejct.put("todate", todate);
+		JSONArray response = smartConnect.candleData(requestObejct);
+		return response;
+	}
+
+	/**
+	 * 
+	 * @param exchange
+	 * @param symboltoken
+	 * @param interval
+	 * @param fromdate
+	 * @param todate
+	 */
+
+	public JSONArray getOpenIntrestData(String exchange, String symboltoken, String interval, String fromdate,
+			String todate) {
+
+		JSONObject requestObejct = new JSONObject();
+		requestObejct.put("exchange", exchange);
+		requestObejct.put("symboltoken", symboltoken);
+		requestObejct.put("interval", interval);
+		requestObejct.put("fromdate", fromdate);
+		requestObejct.put("todate", todate);
+
+		JSONArray oiData = smartConnect.oiData(requestObejct);
+
+		// Process the response
+		System.err.println("oiData ==" + oiData.toString());
+
+		return oiData;
+
+	}
+
+	public JSONObject getOptionChain(String stockName, String expirydate) throws TradeScheduleBusinessException {
+
+		JSONObject requestObejct = new JSONObject();
+		requestObejct.put("name", stockName);
+		requestObejct.put("expirydate", expirydate);
+		JSONObject optionGreek = null;
+		try {
+			optionGreek = smartConnect.optionGreek(requestObejct);
+		} catch (IOException | SmartAPIException e) {
+
+			throw new TradeScheduleBusinessException("Issue in getOptionChain whilte fetching optionGreek stockName : "
+					+ stockName + " expirydate: " + expirydate + " " + e.getMessage(), e);
+		}
+
+		return optionGreek;
+	}
+
+	/**
+	 * 
+	 * @param exchange
+	 * @param tradingSymbol
+	 * @param symboltoken
+	 * @return
+	 * @throws SmartAPIException
+	 * @throws IOException
+	 */
+	public JSONObject getLTP(String exchange, String tradingSymbol, String symboltoken) {
+		JSONObject ltpData = smartConnect.getLTP(exchange, tradingSymbol, symboltoken);
+		return ltpData;
+	}
+
+	/**
+	 * 
+	 * @param mode
+	 * @param searchData
+	 * @return
+	 * @throws TradeScheduleBusinessException
+	 */
+	public JSONObject getMarketData(String mode, String searchData, String exchange)
+			throws TradeScheduleBusinessException {
+
+		JSONObject response = null;
+		JSONObject payload = new JSONObject();
+		payload.put("mode", mode);
+		JSONObject exchangeTokens = new JSONObject();
+		JSONArray nseTokens = new JSONArray();
+		nseTokens.put(searchData);
+		exchangeTokens.put(exchange, nseTokens);
+		payload.put("exchangeTokens", exchangeTokens);
+
+		try {
+			response = smartConnect.marketData(payload);
+		} catch (IOException | SmartAPIException e) {
+
+			throw new TradeScheduleBusinessException("issue in getMarketData while getting market data exchange : "
+					+ exchange + ", searchData : " + searchData + ", mode: " + mode + " " + e.getMessage(), e);
+		}
+
+		return response;
+
+	}
+
+	private SmartConnect getSmartConnect(String apiKey, String clientCode, String mPin, String totp) {
+		SmartConnect smartConnect = new SmartConnect(apiKey);
+		User user = smartConnect.generateSession(clientCode, mPin, totp);
+		smartConnect.setAccessToken(user.getAccessToken());
+		smartConnect.setUserId(user.getUserId());
+		smartConnect.setRefreshToken(user.getRefreshToken());
+		if (apiKey.equals(getKey().get(SmartApiLogin.MARKET))) {
+			this.user = user;
+		} 
+
+		return smartConnect;
+
+	}
+
+	private User getHistorySmartConnect(String clientCode, String mPin, String totp) {
+
+		smartConnect = new SmartConnect(getKey().get(SmartApiLogin.HISTORICAL));
+		User hUser = smartConnect.generateSession(clientCode, mPin, totp);
+		smartConnect.setAccessToken(hUser.getAccessToken());
+		smartConnect.setUserId(hUser.getUserId());
+
+		return hUser;
+
+	}
+
+	private Map<String, String> getKey() {
+
+		Map<String, String> mapKEY = new HashMap<>();
+		mapKEY.put(SmartApiLogin.CLIENTID, "R57698459");
+		mapKEY.put(SmartApiLogin.MPIN, "0786");
+		mapKEY.put(SmartApiLogin.APIKEY, "OyGk7SAS");
+		return mapKEY;
+	}
+
+}

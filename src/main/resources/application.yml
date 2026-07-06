@@ -1,17 +1,9 @@
 server:
-  port: 7077
+  port: 3077
 
 spring:
   application:
     name: trade-broker-service
+  profiles:
+    active: test
 
-  datasource:
-    url: jdbc:mysql://host.docker.internal:3307/tradding_db
-    username: root
-    password: root
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    open-in-view: false

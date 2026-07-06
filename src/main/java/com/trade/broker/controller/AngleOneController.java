@@ -74,7 +74,9 @@ public class AngleOneController {
 	 
 		
 		JSONObject ltpObject=	smartApiLogin.getLTP(exchange, tradingSymbol, symboltoken);
-
+		if(ltpObject == null) {
+			return ResponseEntity.ok("Unable to get LTP data. Please re-login to the Smart API.");
+		}
 		
 		return ResponseEntity.ok(ltpObject.toString());	
 	}

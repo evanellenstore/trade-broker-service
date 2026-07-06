@@ -1,6 +1,6 @@
 package com.trade.broker.exception;
 
-public class TradeScheduleBusinessException extends Exception{
+public class TradeScheduleBusinessException extends RuntimeException {
 
 	private static final long serialVersionUID = 1L;
 
@@ -11,7 +11,7 @@ public class TradeScheduleBusinessException extends Exception{
 	public TradeScheduleBusinessException(String message, Throwable cause, boolean enableSuppression,
 			boolean writableStackTrace) {
 		super(message, cause, enableSuppression, writableStackTrace);
-		// TODO Auto-generated constructor stub
+		
 	}
 
 	public TradeScheduleBusinessException(String message, Throwable cause) {

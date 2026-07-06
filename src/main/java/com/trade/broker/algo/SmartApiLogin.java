@@ -552,8 +552,19 @@ public class SmartApiLogin {
 	 * @throws SmartAPIException
 	 * @throws IOException
 	 */
-	public JSONObject getLTP(String exchange, String tradingSymbol, String symboltoken) {
-		JSONObject ltpData = smartConnect.getLTP(exchange, tradingSymbol, symboltoken);
+	public JSONObject getLTP(String exchange, String tradingSymbol, String symboltoken) throws TradeScheduleBusinessException {
+
+		JSONObject ltpData = null;
+		try {
+			ltpData = smartConnect.getLTP(exchange, tradingSymbol, symboltoken);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new TradeScheduleBusinessException(
+					"Issue in getLTP whilte fetching ltpData exchange : " + exchange + ", tradingSymbol : "
+							+ tradingSymbol + ", symboltoken: " + symboltoken + " " + e.getMessage(),
+					e);	
+		}
+
 		return ltpData;
 	}
 

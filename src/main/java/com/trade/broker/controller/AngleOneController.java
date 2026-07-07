@@ -27,7 +27,11 @@ public class AngleOneController {
 	@Autowired
 	private SmartApiLogin smartApiLogin;
 
-
+	/**
+	 * 
+	 * @param ttop
+	 * @return
+	 */
     @PostMapping("/login/byTtop")
 	public ResponseEntity<String> loginInAPP(@RequestParam String ttop) {
 		DBTokenDetail dBTokenDetail=intraDayAlgoStagiesHelper.loginSmartApi(ttop);
@@ -42,7 +46,10 @@ public class AngleOneController {
 		
 	}
 
-	
+	/**
+	 * 
+	 * @return
+	 */
 	@GetMapping("/relogin")
 	public ResponseEntity<String> reloginInAPP() {
 		String result=intraDayAlgoStagiesHelper.reLoginSmartApi();
@@ -60,7 +67,10 @@ public class AngleOneController {
 	
 	
 	
-	
+	/**
+	 * 
+	 * @return
+	 */
 	@GetMapping("/logout")
 	public ResponseEntity<String> logoutInAPP() {
 		intraDayAlgoStagiesHelper.logutSmartApi();
@@ -68,11 +78,15 @@ public class AngleOneController {
 	}
 
 
-
+/**
+ * 
+ * @param exchange
+ * @param tradingSymbol
+ * @param symboltoken
+ * @return
+ */
 	@GetMapping("/ltp")
-	public ResponseEntity<String> getLTP(@RequestParam String exchange, @RequestParam String tradingSymbol, @RequestParam String symboltoken) {
-	 
-		
+	public ResponseEntity<String> getLTP(@RequestParam String exchange, @RequestParam String tradingSymbol, @RequestParam String symboltoken) {	
 		JSONObject ltpObject=	smartApiLogin.getLTP(exchange, tradingSymbol, symboltoken);
 		if(ltpObject == null) {
 			return ResponseEntity.ok("Unable to get LTP data. Please re-login to the Smart API.");
@@ -80,6 +94,58 @@ public class AngleOneController {
 		
 		return ResponseEntity.ok(ltpObject.toString());	
 	}
+
+	/**
+	 * 
+	 * @param tradingSymbol
+	 * @param symbolToken
+	 * @param fromDate
+	 * @param toDate
+	 * @param interval
+	 * @return
+	 */
+	@GetMapping("/candlesData")
+	public ResponseEntity<?> getCandleData(@RequestParam String tradingSymbol,	@RequestParam String symbolToken,
+			@RequestParam String fromDate,@RequestParam String toDate,@RequestParam String interval) {
+
+		try {
+
+			JSONObject response = smartApiLogin.getHistoricalData(tradingSymbol,symbolToken,fromDate,toDate,interval);
+
+			if (response == null) {
+				return ResponseEntity.badRequest()
+						.body("Unable to fetch historical data. Please login again.");
+			}
+
+			return ResponseEntity.ok(response.toString(4));
+		} catch (Exception e) {
+			return ResponseEntity.internalServerError().body(e.getMessage());
+		}
+	}
+
+
+	/**
+	 * 
+	 * @param exchange
+	 * @param symboltoken
+	 * @return
+	 */
+	@GetMapping("/marketData")
+	public ResponseEntity<String> getMarketData(@RequestParam String exchange,
+		 @RequestParam String symboltoken,@RequestParam String mode) 
+	{	
+		JSONObject marketDataObject= smartApiLogin.getMarketData(mode,symboltoken,exchange) ; 
+		if(marketDataObject == null) {
+			return ResponseEntity.ok("Unable to get Market data. Please re-login to the Smart API.");
+	}
+		
+		return ResponseEntity.ok(marketDataObject.toString());	
+	}
+
+
+
+
+	
 
 
 

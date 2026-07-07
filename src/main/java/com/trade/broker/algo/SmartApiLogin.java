@@ -91,13 +91,7 @@ public class SmartApiLogin {
 			System.out.println("Refresh Token: " + refreshToken);
 			System.out.println("Feed Token: " + feedToken);
 
-			 //smartConnect = this.getSmartConnect(
-			//		getKey().get(SmartApiLogin.APIKEY),
-				//	getKey().get(SmartApiLogin.CLIENTID),
-				//	getKey().get(SmartApiLogin.MPIN),
-				//	totp);
-
-			//user=smartConnect.getProfile();
+		
 
 			dbTokenDetail.setAccesstoken(user.getAccessToken());
 			dbTokenDetail.setRefreshtoken(user.getRefreshToken());
@@ -613,6 +607,14 @@ public class SmartApiLogin {
 
 	}
 
+	/**
+	 * 
+	 * @param clientCode
+	 * @param mPin
+	 * @param totp
+	 * @return
+	 */
+
 	private User getHistorySmartConnect(String clientCode, String mPin, String totp) {
 
 		smartConnect = new SmartConnect(getKey().get(SmartApiLogin.HISTORICAL));
@@ -623,6 +625,29 @@ public class SmartApiLogin {
 		return hUser;
 
 	}
+
+/**
+ * 
+ * @param tradingSymbol
+ * @param symboltoken
+ * @param fromdate
+ * @param todate
+ * @param interval
+ * @return
+ */
+	public JSONObject getHistoricalData(String tradingSymbol,
+			String symboltoken,
+			String fromdate,
+			String todate,
+			String interval) {
+
+		JSONArray dataList = this.getCandleData(symboltoken, interval, fromdate, todate);
+
+		return dataList != null ? new JSONObject().put("data", dataList) : null;
+	}
+
+
+
 
 	private Map<String, String> getKey() {
 

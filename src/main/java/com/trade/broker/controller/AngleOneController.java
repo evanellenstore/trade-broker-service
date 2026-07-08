@@ -1,14 +1,18 @@
 package com.trade.broker.controller;
 
+import java.util.List;
+
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.neovisionaries.ws.client.WebSocketException;
 import com.trade.broker.algo.SmartApiLogin;
 import com.trade.broker.domain.IntraDayAlgoStagiesHelper;
 import com.trade.broker.entity.DBTokenDetail;
@@ -141,14 +145,28 @@ public class AngleOneController {
 		
 		return ResponseEntity.ok(marketDataObject.toString());	
 	}
-
-
-
-
 	
 
+	/**
+	 * Subscribes to socket updates for a given stock entity.
+	 * @param exchange
+	 * @param tradingSymbol
+	 * @param mode
+	 * @return
+	 */
+	@PostMapping("/subscribeSocketConnect")
+	public ResponseEntity<String> subscribeSocketConnect(@RequestBody List<String> listOfTokens) {
 
+			try {
+				smartApiLogin.subcribeToSmartStreamConnect(listOfTokens);
+			} catch (WebSocketException e) {
+				e.printStackTrace();
+				return ResponseEntity.internalServerError().body("Error subscribing to socket updates: " + e.getMessage());
+			}
+				
+		return ResponseEntity.ok("Socket subscription feature is implemented yet.");
 
+	}
 
 
 }

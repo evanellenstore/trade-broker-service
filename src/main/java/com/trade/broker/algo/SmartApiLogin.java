@@ -1,5 +1,4 @@
 package com.trade.broker.algo;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -11,12 +10,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
 import com.angelbroking.smartapi.SmartConnect;
 import com.angelbroking.smartapi.http.exceptions.SmartAPIException;
 import com.angelbroking.smartapi.models.Order;
@@ -54,12 +51,100 @@ public class SmartApiLogin {
 	public static final String APIKEY = "APIKEY";
 
 	static SmartConnect smartConnect = new SmartConnect();
-	
-	User user;
+	User user=new User();
+	SmartStreamListener listener=null;
+	SmartStreamTicker ticker=null;
 
 
 	@Autowired
 	private TokenService tokenService;
+/**
+ * 
+ * @param listOfTokens
+ * @throws WebSocketException 
+ */
+	public void subcribeToSmartStreamConnect(List<String> listOfTokens ) throws WebSocketException {
+      
+        String feedToken = user.getFeedToken();
+
+        // --- 2. Define the listener ---
+         listener = new SmartStreamListener() {
+            @Override
+            public void onLTPArrival(LTP ltp) {
+                System.out.println("LTP -> token: " + ltp.getToken()
+                        + " ltp: " + ltp.getLastTradedPrice());
+            }
+
+            @Override
+            public void onQuoteArrival(Quote quote) {
+                System.out.println("Quote -> token: " + quote.getToken()
+                        + " ltp: " + quote.getLastTradedPrice()
+                        + " vol: " + quote.getVolumeTradedToday());
+            }
+
+            @Override
+            public void onSnapQuoteArrival(SnapQuote snapQuote) {
+                System.out.println("SnapQuote -> token: " + snapQuote.getToken());
+            }
+
+            @Override
+            public void onDepthArrival(Depth depth) {
+                System.out.println("Depth -> token: " + depth.getToken());
+            }
+
+            @Override
+            public void onConnected() {
+                System.out.println("WebSocket 2.0 connected");
+            }
+
+            @Override
+            public void onDisconnected() {
+                System.out.println("WebSocket disconnected");
+            }
+
+            @Override
+            public void onError(SmartStreamError error) {
+                System.out.println("Error: " + error);
+            }
+
+            @Override
+            public void onPong() {
+                // heartbeat ack, optional to log
+				System.out.println("Pong received");
+            }
+
+            @Override
+            public SmartStreamError onErrorCustom() {
+				System.out.println("==========Custom error handling========");
+
+                return null;
+            }
+        };
+
+		  // --- 3. Create ticker and connect ---
+        ticker = new SmartStreamTicker(getKey().get(SmartApiLogin.CLIENTID), feedToken, listener);
+        ticker.connect();
+
+		// --- 4. Subscribe to tokens ---
+        Set<TokenID> tokens = new HashSet<>();
+		//for (String token : listOfTokens) {
+		//	tokens.add(new TokenID(ExchangeType.NSE_CM, token));
+		//}
+		for (String token : listOfTokens) {
+			tokens.add(new TokenID(ExchangeType.NSE_CM, token));
+		}
+
+
+       // tokens.add(new TokenID(ExchangeType.NSE_CM, "3045"));   // SBIN-EQ
+       // tokens.add(new TokenID(ExchangeType.NSE_CM, "99926000")); // NIFTY 50
+        //tokens.add(new TokenID(ExchangeType.NSE_CM, "99926009")); // NIFTY BANK
+
+		ticker.subscribe(SmartStreamSubsMode.QUOTE, tokens);
+
+	}
+
+
+
 
 	/**
 	 * 
@@ -393,8 +478,7 @@ public class SmartApiLogin {
 	 */
 	public String proccessReLogin() {
 		String result = "";
-		DBTokenDetail dbtoken = tokenService.getTokenAppName(TRADEConstants.SMART_API,
-				TRADEConstants.M_TOKEN_EXPREIED_NO);
+		DBTokenDetail dbtoken = tokenService.getTokenAppName(TRADEConstants.SMART_API,TRADEConstants.M_TOKEN_EXPREIED_NO);
 
 		if (dbtoken != null) {
 			smartConnect = new SmartConnect(getKey().get(SmartApiLogin.APIKEY));
@@ -403,10 +487,12 @@ public class SmartApiLogin {
 			smartConnect.setRefreshToken(mTokenSet.getRefreshToken());
 			smartConnect.setUserId(mTokenSet.getUserId());
 
+			user.setAccessToken(mTokenSet.getAccessToken());
+			user.setRefreshToken(mTokenSet.getRefreshToken());
+			user.setFeedToken(mTokenSet.getFeedToken());
+
 			System.err.println("Market Re-Logged in successfully!");
-			System.err.println("Market Access Token: " + mTokenSet.getAccessToken());
-			// System.out.println("Market Refresh Token: " + mTokenSet.getRefreshToken());
-			// System.out.println("Market Feed Token: " + mTokenSet.getFeedToken());
+			
 
 			DBTokenDetail newdbtoken = new DBTokenDetail();
 			newdbtoken.setAccesstoken(mTokenSet.getAccessToken());
@@ -427,6 +513,11 @@ public class SmartApiLogin {
 
 	}
 
+	/**
+	 * 
+	 * @param token
+	 * @param apiKey
+	 */
 	public void getRestData(String token, String apiKey) {
 
 		try {
@@ -593,6 +684,14 @@ public class SmartApiLogin {
 
 	}
 
+	/**
+	 * 
+	 * @param apiKey
+	 * @param clientCode
+	 * @param mPin
+	 * @param totp
+	 * @return
+	 */
 	private SmartConnect getSmartConnect(String apiKey, String clientCode, String mPin, String totp) {
 		SmartConnect smartConnect = new SmartConnect(apiKey);
 		User user = smartConnect.generateSession(clientCode, mPin, totp);
@@ -626,15 +725,15 @@ public class SmartApiLogin {
 
 	}
 
-/**
- * 
- * @param tradingSymbol
- * @param symboltoken
- * @param fromdate
- * @param todate
- * @param interval
- * @return
- */
+	/**
+	 * 
+	 * @param tradingSymbol
+	 * @param symboltoken
+	 * @param fromdate
+	 * @param todate
+	 * @param interval
+	 * @return
+	 */
 	public JSONObject getHistoricalData(String tradingSymbol,
 			String symboltoken,
 			String fromdate,
@@ -647,7 +746,10 @@ public class SmartApiLogin {
 	}
 
 
-
+	/**
+	 * 
+	 * @return
+	 */
 
 	private Map<String, String> getKey() {
 

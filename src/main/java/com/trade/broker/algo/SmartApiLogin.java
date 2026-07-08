@@ -64,6 +64,10 @@ public class SmartApiLogin {
  * @throws WebSocketException 
  */
 	public void subcribeToSmartStreamConnect(List<String> listOfTokens ) throws WebSocketException {
+		subcribeToSmartStreamConnect(listOfTokens, "NSE_CM");
+	}
+
+	public void subcribeToSmartStreamConnect(List<String> listOfTokens, String exchange) throws WebSocketException {
       
         String feedToken = user.getFeedToken();
 

@@ -5,6 +5,7 @@ import java.util.List;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,7 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 import com.neovisionaries.ws.client.WebSocketException;
 import com.trade.broker.algo.SmartApiLogin;
 import com.trade.broker.domain.IntraDayAlgoStagiesHelper;
+import com.trade.broker.dto.CurrentSubscriptionsResponse;
+import com.trade.broker.dto.SubscriptionRequest;
+import com.trade.broker.dto.SubscriptionResponse;
 import com.trade.broker.entity.DBTokenDetail;
+import com.trade.broker.service.SubscriptionService;
 import com.trade.broker.service.TokenService;
 
 @RestController
@@ -30,6 +35,9 @@ public class AngleOneController {
 
 	@Autowired
 	private SmartApiLogin smartApiLogin;
+	
+	@Autowired
+	private SubscriptionService subscriptionService;
 
 	/**
 	 * 
@@ -166,6 +174,75 @@ public class AngleOneController {
 				
 		return ResponseEntity.ok("Socket subscription feature is implemented yet.");
 
+	}
+
+	/**
+	 * Subscribe to symbols for a given exchange
+	 * POST /api/v1/broker/subscriptions
+	 * @param request SubscriptionRequest with exchange and list of symbols
+	 * @return SubscriptionResponse with status and subscribed symbols
+	 */
+	@PostMapping("/subscriptions")
+	public ResponseEntity<SubscriptionResponse> subscribe(@RequestBody SubscriptionRequest request) {
+		try {
+			SubscriptionResponse response = subscriptionService.subscribe(request);
+			return ResponseEntity.ok(response);
+		} catch (WebSocketException e) {
+			e.printStackTrace();
+			SubscriptionResponse errorResponse = new SubscriptionResponse();
+			errorResponse.setStatus("ERROR");
+			errorResponse.setMessage("Error subscribing to symbols: " + e.getMessage());
+			return ResponseEntity.internalServerError().body(errorResponse);
+		} catch (Exception e) {
+			e.printStackTrace();
+			SubscriptionResponse errorResponse = new SubscriptionResponse();
+			errorResponse.setStatus("ERROR");
+			errorResponse.setMessage("Error subscribing to symbols: " + e.getMessage());
+			return ResponseEntity.internalServerError().body(errorResponse);
+		}
+	}
+
+	/**
+	 * Unsubscribe from symbols for a given exchange
+	 * DELETE /api/v1/broker/subscriptions
+	 * @param request SubscriptionRequest with exchange and list of symbols
+	 * @return SubscriptionResponse with status
+	 */
+	@DeleteMapping("/subscriptions")
+	public ResponseEntity<SubscriptionResponse> unsubscribe(@RequestBody SubscriptionRequest request) {
+		try {
+			SubscriptionResponse response = subscriptionService.unsubscribe(request);
+			return ResponseEntity.ok(response);
+		} catch (WebSocketException e) {
+			e.printStackTrace();
+			SubscriptionResponse errorResponse = new SubscriptionResponse();
+			errorResponse.setStatus("ERROR");
+			errorResponse.setMessage("Error unsubscribing from symbols: " + e.getMessage());
+			return ResponseEntity.internalServerError().body(errorResponse);
+		} catch (Exception e) {
+			e.printStackTrace();
+			SubscriptionResponse errorResponse = new SubscriptionResponse();
+			errorResponse.setStatus("ERROR");
+			errorResponse.setMessage("Error unsubscribing from symbols: " + e.getMessage());
+			return ResponseEntity.internalServerError().body(errorResponse);
+		}
+	}
+
+	/**
+	 * Get current subscriptions for a given exchange
+	 * GET /api/v1/broker/subscriptions?exchange=NSE
+	 * @param exchange The exchange name
+	 * @return CurrentSubscriptionsResponse with exchange and subscribed symbols
+	 */
+	@GetMapping("/subscriptions")
+	public ResponseEntity<CurrentSubscriptionsResponse> getCurrentSubscriptions(@RequestParam String exchange) {
+		try {
+			CurrentSubscriptionsResponse response = subscriptionService.getCurrentSubscriptions(exchange);
+			return ResponseEntity.ok(response);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return ResponseEntity.internalServerError().body(null);
+		}
 	}
 
 

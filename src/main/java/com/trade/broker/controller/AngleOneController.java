@@ -3,7 +3,10 @@ package com.trade.broker.controller;
 import java.util.List;
 
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +30,8 @@ import com.trade.broker.service.TokenService;
 @RequestMapping("/api/angelOne")
 public class AngleOneController {
 
+	private static final Logger log = LoggerFactory.getLogger(AngleOneController.class);
+
     @Autowired
 	private TokenService tokenService;
 	
@@ -47,7 +52,7 @@ public class AngleOneController {
     @PostMapping("/login/byTtop")
 	public ResponseEntity<String> loginInAPP(@RequestParam String ttop) {
 		DBTokenDetail dBTokenDetail=intraDayAlgoStagiesHelper.loginSmartApi(ttop);
-		System.out.println("==getMaccesstoken===="+dBTokenDetail.getAccesstoken());
+		log.debug("Login request received for ttop token");
 		DBTokenDetail result=tokenService.saveToken(dBTokenDetail);
 		//intraDayAlgoStagiesHelper.loginPortalSmartApi(ttop);
 		if(result!=null) {
@@ -101,7 +106,9 @@ public class AngleOneController {
 	public ResponseEntity<String> getLTP(@RequestParam String exchange, @RequestParam String tradingSymbol, @RequestParam String symboltoken) {	
 		JSONObject ltpObject=	smartApiLogin.getLTP(exchange, tradingSymbol, symboltoken);
 		if(ltpObject == null) {
-			return ResponseEntity.ok("Unable to get LTP data. Please re-login to the Smart API.");
+			log.warn("Unable to fetch LTP data for exchange={}, tradingSymbol={}, symbolToken={}", exchange, tradingSymbol, symboltoken);
+			return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+					.body("Unable to get LTP data. Please re-login to the Smart API.");
 		}
 		
 		return ResponseEntity.ok(ltpObject.toString());	
@@ -148,7 +155,9 @@ public class AngleOneController {
 	{	
 		JSONObject marketDataObject= smartApiLogin.getMarketData(mode,symboltoken,exchange) ; 
 		if(marketDataObject == null) {
-			return ResponseEntity.ok("Unable to get Market data. Please re-login to the Smart API.");
+			log.warn("Unable to fetch market data for exchange={}, symbolToken={}, mode={}", exchange, symboltoken, mode);
+			return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+					.body("Unable to get Market data. Please re-login to the Smart API.");
 	}
 		
 		return ResponseEntity.ok(marketDataObject.toString());	
@@ -168,7 +177,7 @@ public class AngleOneController {
 			try {
 				smartApiLogin.subcribeToSmartStreamConnect(listOfTokens);
 			} catch (WebSocketException e) {
-				e.printStackTrace();
+				log.error("Error subscribing to socket updates", e);
 				return ResponseEntity.internalServerError().body("Error subscribing to socket updates: " + e.getMessage());
 			}
 				
@@ -188,13 +197,13 @@ public class AngleOneController {
 			SubscriptionResponse response = subscriptionService.subscribe(request);
 			return ResponseEntity.ok(response);
 		} catch (WebSocketException e) {
-			e.printStackTrace();
+			log.error("Error subscribing to symbols", e);
 			SubscriptionResponse errorResponse = new SubscriptionResponse();
 			errorResponse.setStatus("ERROR");
 			errorResponse.setMessage("Error subscribing to symbols: " + e.getMessage());
 			return ResponseEntity.internalServerError().body(errorResponse);
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("Error subscribing to symbols", e);
 			SubscriptionResponse errorResponse = new SubscriptionResponse();
 			errorResponse.setStatus("ERROR");
 			errorResponse.setMessage("Error subscribing to symbols: " + e.getMessage());
@@ -214,13 +223,13 @@ public class AngleOneController {
 			SubscriptionResponse response = subscriptionService.unsubscribe(request);
 			return ResponseEntity.ok(response);
 		} catch (WebSocketException e) {
-			e.printStackTrace();
+			log.error("Error unsubscribing from symbols", e);
 			SubscriptionResponse errorResponse = new SubscriptionResponse();
 			errorResponse.setStatus("ERROR");
 			errorResponse.setMessage("Error unsubscribing from symbols: " + e.getMessage());
 			return ResponseEntity.internalServerError().body(errorResponse);
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("Error unsubscribing from symbols", e);
 			SubscriptionResponse errorResponse = new SubscriptionResponse();
 			errorResponse.setStatus("ERROR");
 			errorResponse.setMessage("Error unsubscribing from symbols: " + e.getMessage());
@@ -240,7 +249,7 @@ public class AngleOneController {
 			CurrentSubscriptionsResponse response = subscriptionService.getCurrentSubscriptions(exchange);
 			return ResponseEntity.ok(response);
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("Error fetching current subscriptions", e);
 			return ResponseEntity.internalServerError().body(null);
 		}
 	}

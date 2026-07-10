@@ -10,9 +10,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import com.angelbroking.smartapi.SmartConnect;
 import com.angelbroking.smartapi.http.exceptions.SmartAPIException;
@@ -36,11 +41,15 @@ import com.trade.broker.constant.TRADEConstants;
 import com.trade.broker.entity.DBTokenDetail;
 import com.trade.broker.entity.TradeEntryStock;
 import com.trade.broker.exception.TradeScheduleBusinessException;
+import com.trade.broker.service.TickPublisher;
 import com.trade.broker.service.TokenService;
 import com.trade.broker.util.TRADEDateUtil;
 
 @Component
 public class SmartApiLogin {
+
+	private static final Logger log = LoggerFactory.getLogger(SmartApiLogin.class);
+	private static final String MARKET_TICK_TOPIC = "market.tick";
 
 	public static final String HISTORICAL = "Historical";
 	public static final String MARKET = "Market";
@@ -58,6 +67,13 @@ public class SmartApiLogin {
 
 	@Autowired
 	private TokenService tokenService;
+
+	@Autowired
+	private TickPublisher tickPublisher;
+
+	
+
+	private final ConcurrentHashMap<String, SnapQuote> latestQuotes = new ConcurrentHashMap<>();
 /**
  * 
  * @param listOfTokens
@@ -69,58 +85,94 @@ public class SmartApiLogin {
 
 	public void subcribeToSmartStreamConnect(List<String> listOfTokens, String exchange) throws WebSocketException {
       
+		
         String feedToken = user.getFeedToken();
 
         // --- 2. Define the listener ---
          listener = new SmartStreamListener() {
             @Override
             public void onLTPArrival(LTP ltp) {
-                System.out.println("LTP -> token: " + ltp.getToken()
-                        + " ltp: " + ltp.getLastTradedPrice());
+                if (ltp != null) {
+                    tickPublisher.publish(MARKET_TICK_TOPIC, new JSONObject()
+                            .put("event", "LTP")
+                            .put("token", ltp.getToken())
+                            .put("ltp", ltp.getLastTradedPrice())
+                            .toString());
+                }
+                log.info("Received LTP update for token {}", ltp != null ? ltp.getToken() : null);
+				System.out.println("Received LTP update for token " + (ltp != null ? ltp.getToken() : null));
             }
 
             @Override
             public void onQuoteArrival(Quote quote) {
-                System.out.println("Quote -> token: " + quote.getToken()
-                        + " ltp: " + quote.getLastTradedPrice()
-                        + " vol: " + quote.getVolumeTradedToday());
+                if (quote != null) {
+                    tickPublisher.publish(MARKET_TICK_TOPIC, new JSONObject()
+                            .put("event", "QUOTE")
+                            .put("token", quote.getToken())
+                            .put("ltp", quote.getLastTradedPrice())
+                            .put("volume", quote.getVolumeTradedToday())
+                            .toString());
+                }
+                log.info("Received quote update for token {}", quote != null ? quote.getToken() : null);
+				System.out.println("Received quote update for token " + (quote != null ? quote.getToken() : null));
             }
 
-            @Override
-            public void onSnapQuoteArrival(SnapQuote snapQuote) {
-                System.out.println("SnapQuote -> token: " + snapQuote.getToken());
-            }
+         		@Override
+				public void onSnapQuoteArrival(SnapQuote snapQuote) {
+					if (snapQuote != null && snapQuote.getToken() != null) {
+							System.out.println("======================================================");
+							System.out.println("Received snap quote for tokenId " + snapQuote.getToken().getToken());
+							
+							String token = snapQuote.getToken().getToken()
+								.replace("\u0000", "")
+								.trim();
+							
+							latestQuotes.put(token, snapQuote);
+							System.out.println("======================================================");
+						}
+				
+				}
 
             @Override
             public void onDepthArrival(Depth depth) {
-                System.out.println("Depth -> token: " + depth.getToken());
+                if (depth != null) {
+                    tickPublisher.publish(MARKET_TICK_TOPIC, new JSONObject()
+                            .put("event", "DEPTH")
+                            .put("token", depth.getToken())
+                            .toString());
+                }
+                log.info("Received depth update for token {}", depth != null ? depth.getToken() : null);
+				System.out.println("Received depth update for token " + (depth != null ? depth.getToken() : null));
             }
 
             @Override
             public void onConnected() {
-                System.out.println("WebSocket 2.0 connected");
+                 log.info("SmartAPI WebSocket connected.");
+				 System.out.println("SmartAPI WebSocket connected.");
             }
 
             @Override
             public void onDisconnected() {
-                System.out.println("WebSocket disconnected");
+                log.info("SmartAPI WebSocket disconnected");
+				System.out.println("SmartAPI WebSocket disconnected");
             }
 
             @Override
             public void onError(SmartStreamError error) {
-                System.out.println("Error: " + error);
+                log.error("Smart stream error received: {}", error);
+				System.err.println("Smart stream error received: " + error);
             }
 
             @Override
             public void onPong() {
-                // heartbeat ack, optional to log
-				System.out.println("Pong received");
+				 log.info("Heartbeat received.");
+				 System.out.println("Heartbeat received.");
             }
 
             @Override
             public SmartStreamError onErrorCustom() {
-				System.out.println("==========Custom error handling========");
-
+				log.warn("Custom smart stream error handling invoked");
+				System.err.println("Custom smart stream error handling invoked");
                 return null;
             }
         };
@@ -131,19 +183,12 @@ public class SmartApiLogin {
 
 		// --- 4. Subscribe to tokens ---
         Set<TokenID> tokens = new HashSet<>();
-		//for (String token : listOfTokens) {
-		//	tokens.add(new TokenID(ExchangeType.NSE_CM, token));
-		//}
 		for (String token : listOfTokens) {
 			tokens.add(new TokenID(ExchangeType.NSE_CM, token));
 		}
 
-
-       // tokens.add(new TokenID(ExchangeType.NSE_CM, "3045"));   // SBIN-EQ
-       // tokens.add(new TokenID(ExchangeType.NSE_CM, "99926000")); // NIFTY 50
-        //tokens.add(new TokenID(ExchangeType.NSE_CM, "99926009")); // NIFTY BANK
-
-		ticker.subscribe(SmartStreamSubsMode.QUOTE, tokens);
+		ticker.subscribe(SmartStreamSubsMode.SNAP_QUOTE, tokens);
+		
 
 	}
 
@@ -176,9 +221,7 @@ public class SmartApiLogin {
 			String feedToken = user.getFeedToken();
 			
 
-			System.out.println("Access Token: " + accessToken);
-			System.out.println("Refresh Token: " + refreshToken);
-			System.out.println("Feed Token: " + feedToken);
+			log.debug("Market login completed for client {}", user.getUserId());
 
 		
 
@@ -189,7 +232,7 @@ public class SmartApiLogin {
 			dbTokenDetail.setClientId(user.getUserId());
 			dbTokenDetail.setAppName("smartapi");
 
-			System.out.println("Logged in successfully!");
+			log.info("Logged in successfully to Smart API");
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -762,6 +805,34 @@ public class SmartApiLogin {
 		mapKEY.put(SmartApiLogin.MPIN, "0786");
 		mapKEY.put(SmartApiLogin.APIKEY, "OyGk7SAS");
 		return mapKEY;
+	}
+
+	private static final long MINUTES = 2 * 60 * 1000L;
+
+	@Scheduled(fixedRate = MINUTES) 
+	public void publishLatestQuotes() {
+		System.out.println("********* Publishing latest quotes to Kafka topic " + MARKET_TICK_TOPIC);
+
+		for (Map.Entry<String, SnapQuote> entry : latestQuotes.entrySet()) {
+
+			String token = entry.getKey();
+			SnapQuote quote = entry.getValue();
+
+			tickPublisher.publish(
+					MARKET_TICK_TOPIC,
+					new JSONObject()
+							.put("event", "SNAP_QUOTE")
+							.put("token", token)
+							.put("LTP", quote.getLastTradedPrice())
+							.put("Open", quote.getOpenPrice())
+							.put("High", quote.getHighPrice())
+							.put("Low", quote.getLowPrice())
+							.put("Close", quote.getClosePrice())
+							.put("Volume", quote.getVolumeTradedToday())
+							.toString());
+
+			log.info("Published {}", token);
+		}
 	}
 
 }

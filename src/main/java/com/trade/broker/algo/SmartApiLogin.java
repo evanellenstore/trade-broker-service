@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -19,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+
 import com.angelbroking.smartapi.SmartConnect;
 import com.angelbroking.smartapi.http.exceptions.SmartAPIException;
 import com.angelbroking.smartapi.models.Order;
@@ -50,7 +54,6 @@ public class SmartApiLogin {
 
 	private static final Logger log = LoggerFactory.getLogger(SmartApiLogin.class);
 	private static final String MARKET_TICK_TOPIC = "market.tick";
-
 	public static final String HISTORICAL = "Historical";
 	public static final String MARKET = "Market";
 	public static final String TRADING = "Trading";
@@ -59,7 +62,7 @@ public class SmartApiLogin {
 	public static final String MPIN = "mpin";
 	public static final String APIKEY = "APIKEY";
 
-	static SmartConnect smartConnect = new SmartConnect();
+	SmartConnect smartConnect = new SmartConnect();
 	User user=new User();
 	SmartStreamListener listener=null;
 	SmartStreamTicker ticker=null;
@@ -71,19 +74,21 @@ public class SmartApiLogin {
 	@Autowired
 	private TickPublisher tickPublisher;
 
-	
-
-	private final ConcurrentHashMap<String, SnapQuote> latestQuotes = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, Object> latestQuotes = new ConcurrentHashMap<>();
 /**
  * 
  * @param listOfTokens
  * @throws WebSocketException 
  */
-	public void subcribeToSmartStreamConnect(List<String> listOfTokens ) throws WebSocketException {
-		subcribeToSmartStreamConnect(listOfTokens, "NSE_CM");
-	}
+	
 
-	public void subcribeToSmartStreamConnect(List<String> listOfTokens, String exchange) throws WebSocketException {
+	/**
+	 * 
+	 * @param listOfTokens
+	 * @param exchange
+	 * @throws WebSocketException
+	 */
+	public void subcribeToSmartStreamConnect(List<String> listOfTokens, String exchange,Map<String, String> symbols) throws WebSocketException {
       
 		
         String feedToken = user.getFeedToken();
@@ -96,6 +101,7 @@ public class SmartApiLogin {
                     tickPublisher.publish(MARKET_TICK_TOPIC, new JSONObject()
                             .put("event", "LTP")
                             .put("token", ltp.getToken())
+							.put("symbol", symbols.get(ltp.getToken()))
                             .put("ltp", ltp.getLastTradedPrice())
                             .toString());
                 }
@@ -109,6 +115,7 @@ public class SmartApiLogin {
                     tickPublisher.publish(MARKET_TICK_TOPIC, new JSONObject()
                             .put("event", "QUOTE")
                             .put("token", quote.getToken())
+                            .put("symbol", symbols.get(quote.getToken()))
                             .put("ltp", quote.getLastTradedPrice())
                             .put("volume", quote.getVolumeTradedToday())
                             .toString());
@@ -120,15 +127,16 @@ public class SmartApiLogin {
          		@Override
 				public void onSnapQuoteArrival(SnapQuote snapQuote) {
 					if (snapQuote != null && snapQuote.getToken() != null) {
-							System.out.println("======================================================");
-							System.out.println("Received snap quote for tokenId " + snapQuote.getToken().getToken());
+							//System.out.println("======================================================");
+							//System.out.println("Received snap quote for tokenId " + snapQuote.getToken().getToken());
 							
 							String token = snapQuote.getToken().getToken()
 								.replace("\u0000", "")
 								.trim();
 							
 							latestQuotes.put(token, snapQuote);
-							System.out.println("======================================================");
+							latestQuotes.put("symbols", symbols);
+							////System.out.println("======================================================");
 						}
 				
 				}
@@ -213,17 +221,7 @@ public class SmartApiLogin {
 			smartConnect.setAccessToken(user.getAccessToken());
 			smartConnect.setRefreshToken(user.getRefreshToken());
 
-		
-
-			// Save tokens
-			String accessToken = user.getAccessToken();
-			String refreshToken = user.getRefreshToken();
-			String feedToken = user.getFeedToken();
-			
-
 			log.debug("Market login completed for client {}", user.getUserId());
-
-		
 
 			dbTokenDetail.setAccesstoken(user.getAccessToken());
 			dbTokenDetail.setRefreshtoken(user.getRefreshToken());
@@ -807,32 +805,50 @@ public class SmartApiLogin {
 		return mapKEY;
 	}
 
-	private static final long MINUTES = 2 * 60 * 1000L;
+	private static final long MINUTES = 1 * 60 * 1000L;
 
 	@Scheduled(fixedRate = MINUTES) 
 	public void publishLatestQuotes() {
+		
+		if(smartConnect == null || user == null || user.getFeedToken() == null) {
+			System.err.println("SmartConnect or User or FeedToken is null. Skipping publishing latest quotes.");
+			return;
+		}
+
 		System.out.println("********* Publishing latest quotes to Kafka topic " + MARKET_TICK_TOPIC);
 
-		for (Map.Entry<String, SnapQuote> entry : latestQuotes.entrySet()) {
+		for (Map.Entry<String, Object> entry : latestQuotes.entrySet()) {
 
 			String token = entry.getKey();
-			SnapQuote quote = entry.getValue();
-
+			Map<String, String> symbols = (Map<String, String>) latestQuotes.get("symbols");
+			SnapQuote quote = (SnapQuote) latestQuotes.get(token);
+			//SnapQuote quote = entry.getValue();
+			
 			tickPublisher.publish(
 					MARKET_TICK_TOPIC,
 					new JSONObject()
 							.put("event", "SNAP_QUOTE")
 							.put("token", token)
-							.put("LTP", quote.getLastTradedPrice())
-							.put("Open", quote.getOpenPrice())
-							.put("High", quote.getHighPrice())
-							.put("Low", quote.getLowPrice())
-							.put("Close", quote.getClosePrice())
-							.put("Volume", quote.getVolumeTradedToday())
+							.put("symbol", symbols.get(token))
+							.put("ltp", quote.getLastTradedPrice())
+							.put("open", quote.getOpenPrice())
+							.put("high", quote.getHighPrice())
+							.put("low", quote.getLowPrice())
+							.put("exchange", quote.getToken().getExchangeType().name())
+							.put("close", quote.getClosePrice())
+							.put("volume", quote.getVolumeTradedToday())
+							//.put("timestamp", toLocalDateTime(quote.getExchangeFeedTimeEpochMillis()))
+							.put("timestamp", LocalDateTime.now())
 							.toString());
 
 			log.info("Published {}", token);
 		}
+	}
+
+	private LocalDateTime toLocalDateTime(long epochMillis) {
+		return Instant.ofEpochMilli(epochMillis)
+				.atZone(ZoneId.systemDefault())
+				.toLocalDateTime();
 	}
 
 }

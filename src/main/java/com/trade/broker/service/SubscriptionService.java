@@ -43,7 +43,7 @@ public class SubscriptionService {
 		}
 
 		// Subscribe to new symbols via SmartApiLogin using token values
-		smartApiLogin.subcribeToSmartStreamConnect(tokenList, exchange);
+		smartApiLogin.subcribeToSmartStreamConnect(tokenList, exchange,symbols);
 		subscriptions.put(exchange, currentSymbols);
 
 		// Create response

@@ -25,7 +25,7 @@ import com.angelbroking.smartapi.models.Order;
 import com.trade.broker.algo.SmartApiLogin;
 import com.trade.broker.algo.indicator.Candle;
 import com.trade.broker.algo.indicator.CandleAnalyzer;
-import com.trade.broker.algo.indicator.SuperTrendCalculator;
+import com.trade.broker.algo.indicator.Ta4jSuperTrendCalculator;
 import com.trade.broker.constant.TRADEConstants;
 import com.trade.broker.domain.IntraDayAlgoStagiesHelper;
 import com.trade.broker.entity.FNOStockDetail;
@@ -71,14 +71,14 @@ public class LiveTradeService {
 	private double multiplier;
 	
 	
-	Map<String,SuperTrendCalculator> supertrendmap=new HashMap<>();
+	Map<String,Ta4jSuperTrendCalculator> supertrendmap=new HashMap<>();
 	
 	Map<String,CandleAnalyzer> candleAnalyzermap=new HashMap<>();
 	
 	
 	
 	Map<String,List<Candle>> candlesMap=new HashMap<>();
-	Map<String,SuperTrendCalculator> newsupertrendmap=new HashMap<>();
+	Map<String,Ta4jSuperTrendCalculator> newsupertrendmap=new HashMap<>();
 	
 	
 	public String loadTrade(LocalDateTime excutingTime, int counter){
@@ -292,7 +292,7 @@ public class LiveTradeService {
 	/**
 	 * 
 	 */
-	private void existLogicForSellOption(LocalDateTime excutingTime,int minusMinutes,Map<String,SuperTrendCalculator> supperTrendMap) {
+	private void existLogicForSellOption(LocalDateTime excutingTime,int minusMinutes,Map<String,Ta4jSuperTrendCalculator> supperTrendMap) {
 		
 		List<TradeEntryStock> executedTradeList = tradeEntryStockService.fetchTodayTrade(TradeStatus.EXECUTED.getValue());
 		
@@ -301,7 +301,7 @@ public class LiveTradeService {
 			for(TradeEntryStock tradeEntryStock:executedTradeList) {
 				
 				
-				  SuperTrendCalculator superTrend =supperTrendMap.get(tradeEntryStock.getStocktradingsymbol());
+				  Ta4jSuperTrendCalculator superTrend =supperTrendMap.get(tradeEntryStock.getStocktradingsymbol());
 			        //double superTrendValue = superTrend.getLatestSuperTrend();
 			        boolean istrend = superTrend.isUptrend();
 			        
@@ -463,13 +463,13 @@ private void saveBuyOrderAndUpdateStatus(int lotquantity, TradeEntryStock tradeE
 /**
  * 
  */
-	private void moveStockInprogress( List<TradeEntryStock> openTradeList,LocalDateTime excutingTime, Map<String,SuperTrendCalculator> supperTrendMap) {
+	private void moveStockInprogress( List<TradeEntryStock> openTradeList,LocalDateTime excutingTime, Map<String,Ta4jSuperTrendCalculator> supperTrendMap) {
 		
 		for(TradeEntryStock tradeEntryStock:openTradeList) {
 			
 		    String gainerorlooser=tradeEntryStock.getGainerorlooser();
 		    
-		    SuperTrendCalculator superTrend =supperTrendMap.get(tradeEntryStock.getStocktradingsymbol());
+			Ta4jSuperTrendCalculator superTrend =supperTrendMap.get(tradeEntryStock.getStocktradingsymbol());
 		    boolean isUptrend = superTrend.isUptrend();
 		    
 		    List<Candle> candles= superTrend.getCandles();
@@ -550,7 +550,7 @@ private void saveBuyOrderAndUpdateStatus(int lotquantity, TradeEntryStock tradeE
 	 * @param tradeList
 	 * @param excutingTime
 	 */
-	private Map<String,SuperTrendCalculator> calculateSupperTrendIndicator(List<TradeEntryStock> tradeList,LocalDateTime excutingTime,int counter) {
+	private Map<String,Ta4jSuperTrendCalculator> calculateSupperTrendIndicator(List<TradeEntryStock> tradeList,LocalDateTime excutingTime,int counter) {
 		
 		if (tradeList != null) {
 
@@ -574,7 +574,7 @@ private void saveBuyOrderAndUpdateStatus(int lotquantity, TradeEntryStock tradeE
 	}
 
 	public void repeatedSupperTrend(LocalDateTime excutingTime, TradeEntryStock tradeEntryStock) {
-		SuperTrendCalculator superTrend =supertrendmap.get(tradeEntryStock.getStocktradingsymbol());
+		Ta4jSuperTrendCalculator superTrend =supertrendmap.get(tradeEntryStock.getStocktradingsymbol());
 		
 		JSONArray today_CandleData = currentTimeCandles(excutingTime, tradeEntryStock);
       
@@ -625,7 +625,7 @@ private void saveBuyOrderAndUpdateStatus(int lotquantity, TradeEntryStock tradeE
 
 	public void initSupperTrend(LocalDateTime excutingTime, TradeEntryStock tradeEntryStock) {
 		
-		SuperTrendCalculator superTrend = new SuperTrendCalculator(atrPeriod, multiplier);
+		Ta4jSuperTrendCalculator superTrend = new Ta4jSuperTrendCalculator(atrPeriod, multiplier);
 		
 		JSONArray prevdayCandleData = getPreviousDayCandles(tradeEntryStock);
 		JSONArray today_CandleData = getTodayCandle(excutingTime, tradeEntryStock);

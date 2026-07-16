@@ -164,26 +164,7 @@ public class AngleOneController {
 	}
 	
 
-	/**
-	 * Subscribes to socket updates for a given stock entity.
-	 * @param exchange
-	 * @param tradingSymbol
-	 * @param mode
-	 * @return
-	 */
-	@PostMapping("/subscribeSocketConnect")
-	public ResponseEntity<String> subscribeSocketConnect(@RequestBody List<String> listOfTokens) {
 
-			try {
-				smartApiLogin.subcribeToSmartStreamConnect(listOfTokens);
-			} catch (WebSocketException e) {
-				log.error("Error subscribing to socket updates", e);
-				return ResponseEntity.internalServerError().body("Error subscribing to socket updates: " + e.getMessage());
-			}
-				
-		return ResponseEntity.ok("Socket subscription feature is implemented yet.");
-
-	}
 
 	/**
 	 * Subscribe to symbols for a given exchange

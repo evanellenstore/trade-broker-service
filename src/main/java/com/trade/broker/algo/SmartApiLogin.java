@@ -88,25 +88,24 @@ public class SmartApiLogin {
 	 * @param exchange
 	 * @throws WebSocketException
 	 */
-	public void subcribeToSmartStreamConnect(List<String> listOfTokens, String exchange,Map<String, String> symbols) throws WebSocketException {
+public void subcribeToSmartStreamConnect(List<String> listOfTokens, String exchange, Map<String, String> symbols) throws WebSocketException {
       
-		
         String feedToken = user.getFeedToken();
 
         // --- 2. Define the listener ---
-         listener = new SmartStreamListener() {
+        listener = new SmartStreamListener() {
             @Override
             public void onLTPArrival(LTP ltp) {
                 if (ltp != null) {
                     tickPublisher.publish(MARKET_TICK_TOPIC, new JSONObject()
                             .put("event", "LTP")
                             .put("token", ltp.getToken())
-							.put("symbol", symbols.get(ltp.getToken()))
+                            .put("symbol", symbols.get(ltp.getToken()))
                             .put("ltp", ltp.getLastTradedPrice())
                             .toString());
                 }
                 log.info("Received LTP update for token {}", ltp != null ? ltp.getToken() : null);
-				System.out.println("Received LTP update for token " + (ltp != null ? ltp.getToken() : null));
+                System.out.println("Received LTP update for token " + (ltp != null ? ltp.getToken() : null));
             }
 
             @Override
@@ -121,25 +120,20 @@ public class SmartApiLogin {
                             .toString());
                 }
                 log.info("Received quote update for token {}", quote != null ? quote.getToken() : null);
-				System.out.println("Received quote update for token " + (quote != null ? quote.getToken() : null));
+                System.out.println("Received quote update for token " + (quote != null ? quote.getToken() : null));
             }
 
-         		@Override
-				public void onSnapQuoteArrival(SnapQuote snapQuote) {
-					if (snapQuote != null && snapQuote.getToken() != null) {
-							//System.out.println("======================================================");
-							//System.out.println("Received snap quote for tokenId " + snapQuote.getToken().getToken());
-							
-							String token = snapQuote.getToken().getToken()
-								.replace("\u0000", "")
-								.trim();
-							
-							latestQuotes.put(token, snapQuote);
-							latestQuotes.put("symbols", symbols);
-							////System.out.println("======================================================");
-						}
-				
-				}
+            @Override
+            public void onSnapQuoteArrival(SnapQuote snapQuote) {
+                if (snapQuote != null && snapQuote.getToken() != null) {
+                    String token = snapQuote.getToken().getToken()
+                            .replace("\u0000", "")
+                            .trim();
+
+                    latestQuotes.put(token, snapQuote);
+                    latestQuotes.put("symbols", symbols);
+                }
+            }
 
             @Override
             public void onDepthArrival(Depth depth) {
@@ -150,55 +144,73 @@ public class SmartApiLogin {
                             .toString());
                 }
                 log.info("Received depth update for token {}", depth != null ? depth.getToken() : null);
-				System.out.println("Received depth update for token " + (depth != null ? depth.getToken() : null));
+                System.out.println("Received depth update for token " + (depth != null ? depth.getToken() : null));
             }
 
             @Override
             public void onConnected() {
-                 log.info("SmartAPI WebSocket connected.");
-				 System.out.println("SmartAPI WebSocket connected.");
+                log.info("SmartAPI WebSocket connected.");
+                System.out.println("SmartAPI WebSocket connected.");
             }
 
             @Override
             public void onDisconnected() {
                 log.info("SmartAPI WebSocket disconnected");
-				System.out.println("SmartAPI WebSocket disconnected");
+                System.out.println("SmartAPI WebSocket disconnected");
             }
 
             @Override
             public void onError(SmartStreamError error) {
                 log.error("Smart stream error received: {}", error);
-				System.err.println("Smart stream error received: " + error);
+                System.err.println("Smart stream error received: " + error);
             }
 
             @Override
             public void onPong() {
-				 log.info("Heartbeat received.");
-				 System.out.println("Heartbeat received.");
+                log.info("Heartbeat received.");
+                System.out.println("Heartbeat received.");
             }
 
             @Override
             public SmartStreamError onErrorCustom() {
-				log.warn("Custom smart stream error handling invoked");
-				System.err.println("Custom smart stream error handling invoked");
+                log.warn("Custom smart stream error handling invoked");
+                System.err.println("Custom smart stream error handling invoked");
                 return null;
             }
         };
 
-		  // --- 3. Create ticker and connect ---
+        // --- 3. Create ticker and connect ---
         ticker = new SmartStreamTicker(getKey().get(SmartApiLogin.CLIENTID), feedToken, listener);
         ticker.connect();
 
-		// --- 4. Subscribe to tokens ---
+        // --- 4. Subscribe to tokens ---
         Set<TokenID> tokens = new HashSet<>();
-		for (String token : listOfTokens) {
-			tokens.add(new TokenID(ExchangeType.NSE_CM, token));
-		}
+        ExchangeType exchangeType = resolveExchangeType(exchange);
+        for (String token : listOfTokens) {
+            if (token != null && !token.trim().isEmpty()) {
+                tokens.add(new TokenID(exchangeType, token.trim()));
+            }
+        }
 
-		ticker.subscribe(SmartStreamSubsMode.SNAP_QUOTE, tokens);
-		
+        ticker.subscribe(SmartStreamSubsMode.SNAP_QUOTE, tokens);
+    }
 
-	}
+    private ExchangeType resolveExchangeType(String exchange) {
+        if (exchange == null) {
+            return ExchangeType.NSE_CM;
+        }
+        switch (exchange.trim().toUpperCase()) {
+            case "BSE":
+                return ExchangeType.BSE_CM;
+            case "NSE_FO":
+                return ExchangeType.NSE_FO;
+            case "BSE_FO":
+                return ExchangeType.BSE_FO;
+            case "NSE":
+            default:
+                return ExchangeType.NSE_CM;
+        }
+    }
 
 
 

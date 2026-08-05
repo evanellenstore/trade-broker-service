@@ -22,8 +22,9 @@ public class SubscriptionService {
 	@Autowired
 	private SmartApiLogin smartApiLogin;
 
-	// In-memory storage for subscriptions by exchange
+	// In-memory storage for symbol names by exchange and token
 	private Map<String, Set<String>> subscriptions = new HashMap<>();
+	private Map<String, Map<String, String>> subscriptionMetadata = new HashMap<>();
 
 	/**
 	 * Subscribe to symbols for a given exchange
@@ -32,21 +33,26 @@ public class SubscriptionService {
 		String exchange = request.getExchange();
 		Map<String, String> symbols = request.getSymbols();
 
-		// Get or create set of symbols for the exchange
 		Set<String> currentSymbols = subscriptions.getOrDefault(exchange, new HashSet<>());
+		Map<String, String> currentMetadata = subscriptionMetadata.getOrDefault(exchange, new HashMap<>());
 		List<String> tokenList = new ArrayList<>();
+
 		if (symbols != null) {
 			for (Map.Entry<String, String> entry : symbols.entrySet()) {
-				tokenList.add(entry.getKey());
-				currentSymbols.add(entry.getValue());
+				String token = entry.getKey();
+				String symbol = entry.getValue();
+				if (token != null && !token.trim().isEmpty() && symbol != null && !symbol.trim().isEmpty()) {
+					tokenList.add(token.trim());
+					currentSymbols.add(symbol.trim());
+					currentMetadata.put(token.trim(), symbol.trim());
+				}
 			}
 		}
 
-		// Subscribe to new symbols via SmartApiLogin using token values
-		smartApiLogin.subcribeToSmartStreamConnect(tokenList, exchange,symbols);
+		smartApiLogin.subcribeToSmartStreamConnect(tokenList, exchange, currentMetadata);
 		subscriptions.put(exchange, currentSymbols);
+		subscriptionMetadata.put(exchange, currentMetadata);
 
-		// Create response
 		SubscriptionResponse response = new SubscriptionResponse();
 		response.setStatus("SUCCESS");
 		response.setMessage("Subscribed successfully");
@@ -62,26 +68,30 @@ public class SubscriptionService {
 		String exchange = request.getExchange();
 		Map<String, String> symbols = request.getSymbols();
 
-		// Get current symbols for the exchange
 		Set<String> currentSymbols = subscriptions.getOrDefault(exchange, new HashSet<>());
+		Map<String, String> currentMetadata = subscriptionMetadata.getOrDefault(exchange, new HashMap<>());
 
 		if (symbols != null) {
-			for (String symbol : symbols.values()) {
-				currentSymbols.remove(symbol);
+			for (String token : symbols.keySet()) {
+				String symbol = currentMetadata.remove(token);
+				if (symbol != null) {
+					currentSymbols.remove(symbol);
+				}
 			}
 		}
 
 		if (currentSymbols.isEmpty()) {
 			subscriptions.remove(exchange);
+			subscriptionMetadata.remove(exchange);
 		} else {
 			subscriptions.put(exchange, currentSymbols);
+			subscriptionMetadata.put(exchange, currentMetadata);
 		}
 
-		// Create response
 		SubscriptionResponse response = new SubscriptionResponse();
 		response.setStatus("SUCCESS");
 		response.setMessage("Unsubscribed successfully");
-		response.setSubscribedSymbols(null);
+		response.setSubscribedSymbols(new ArrayList<>(currentSymbols));
 
 		return response;
 	}

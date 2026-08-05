@@ -36,72 +36,62 @@ public class FNOStockService {
 	 * @return
 	 * @throws TradeScheduleBusinessException
 	 */
-	@Transactional
 	public String insertFNOStock() throws TradeScheduleBusinessException {
-		// get fno list data
-		String result="Save data successfully ";
+		String result = "Save data successfully";
 		try {
-			Map<String, RawStock> fnoList=fnoCSVData.readDataFromOpenAPIScripMaster("NFO");
-			//fnoList = fnoCSVData.readCSVData();
-			
+			Map<String, RawStock> fnoList = fnoCSVData.readDataFromOpenAPIScripMaster("NFO");
 			for (Map.Entry<String, RawStock> entry : fnoList.entrySet()) {
 				String response = smartApiLogin.getSearchScrip("NSE", entry.getKey());
-				// extract Json From Response
-				JSONObject resultData = this.extractJsonFromResponse(response, entry.getKey());
-				String status = resultData.optString("status", "");
-				if ("success".equals(status)) {
-					System.out.println("Response was successful!");
-					JSONArray filteredData = this.filterByTradingSymbolSuffix(resultData, "-EQ");
-					if(filteredData!=null && filteredData.length()>0) {
-						
+				JSONObject resultData = extractJsonFromResponse(response, entry.getKey());
+				if ("success".equalsIgnoreCase(resultData.optString("status"))) {
+					JSONArray filteredData = filterByTradingSymbolSuffix(resultData, "-EQ");
+					if (filteredData != null && filteredData.length() > 0) {
 						JSONObject stock = filteredData.getJSONObject(0);
-						
-		                String tradingSymbol = stock.optString("tradingsymbol", "");
-		                String exchange = stock.optString("exchange", "");
-		                String symboltoken = stock.optString("symboltoken", "");
-		                
-		                
-		                FNOStockDetail dbStockDetail=fnoStockRepository.findByStackname(entry.getKey());
-		                
-		                
-		                FNOStockDetail fnoStockDetail=new FNOStockDetail();
-		                if(dbStockDetail!=null) {
-		                	fnoStockDetail.setId(dbStockDetail.getId());
-		                }
-		                fnoStockDetail.setExchange(exchange);
-		                fnoStockDetail.setTradingsymbol(tradingSymbol);
-		                fnoStockDetail.setSymboltoken(symboltoken);
-		                fnoStockDetail.setStackname(entry.getKey());
-		                fnoStockDetail.setLotsize(Long.parseLong(entry.getValue().getLotsize()));
-		                fnoStockDetail.setInstrumenttype(entry.getValue().getInstrumenttype());
-		                
-		                Pattern pattern = Pattern.compile(".*test$", Pattern.CASE_INSENSITIVE);
-		                Matcher matcher = pattern.matcher(entry.getKey());
-		                if (matcher.matches()) {
-		                    fnoStockDetail.setLiveortest("test");
-		                } else {
-		                	fnoStockDetail.setLiveortest("live");
-		                }
-		                
-		                FNOStockDetail  dbFNOStockDetail =fnoStockRepository.save(fnoStockDetail);
-		                System.err.println(dbFNOStockDetail);
-					}else{
-						System.err.println("Not save :"+entry.getKey());
+						String tradingSymbol = stock.optString("tradingsymbol");
+						String exchange = stock.optString("exchange");
+						String symboltoken = stock.optString("symboltoken");
+						// Find existing record
+						FNOStockDetail fnoStockDetail = fnoStockRepository.findByStackname(entry.getKey());
+						// Insert if not exists
+						if (fnoStockDetail == null) {
+							fnoStockDetail = new FNOStockDetail();
+						}
+						// Update values
+						fnoStockDetail.setStackname(entry.getKey());
+						fnoStockDetail.setExchange(exchange);
+						fnoStockDetail.setTradingsymbol(tradingSymbol);
+						fnoStockDetail.setSymboltoken(symboltoken);
+						fnoStockDetail.setLotsize(Long.parseLong(entry.getValue().getLotsize()));
+						fnoStockDetail.setInstrumenttype(entry.getValue().getInstrumenttype());
+
+						if (entry.getKey().toLowerCase().endsWith("test")) {
+							fnoStockDetail.setLiveortest("test");
+						} else {
+							fnoStockDetail.setLiveortest("live");
+						}
+						// save() performs INSERT if id is null, UPDATE otherwise
+						FNOStockDetail saved = fnoStockRepository.save(fnoStockDetail);
+						System.out.println("Saved : " + saved.getStackname());
+					} else {
+						System.err.println("No NSE-EQ script found for : " + entry.getKey());
 						System.err.println(response);
 					}
-					
 				}
 				Thread.sleep(1000);
 			}
 		} catch (IOException | SmartAPIException | InterruptedException e) {
 			e.printStackTrace();
-			result="Save data not successfully "+e.getMessage();
+			result = "Save data not successfully : " + e.getMessage();
 		}
-
 		return result;
-		
-
 	}
+
+	/**
+	 * 
+	 * @param exchange
+	 * @return
+	 * @throws TradeScheduleBusinessException
+	 */
 	
 	@Transactional	
 	public List<FNOStockDetail> findByExchange(String exchange) throws TradeScheduleBusinessException {

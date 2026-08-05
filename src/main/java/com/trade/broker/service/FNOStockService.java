@@ -3,8 +3,7 @@ package com.trade.broker.service;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -14,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.angelbroking.smartapi.http.exceptions.SmartAPIException;
 import com.trade.broker.algo.SmartApiLogin;
+import com.trade.broker.dto.FNOStockSymbolDto;
 import com.trade.broker.dto.RawStock;
 import com.trade.broker.entity.FNOStockDetail;
 import com.trade.broker.exception.TradeScheduleBusinessException;
@@ -96,13 +96,20 @@ public class FNOStockService {
 	@Transactional	
 	public List<FNOStockDetail> findByExchange(String exchange) throws TradeScheduleBusinessException {
 		
-		List<FNOStockDetail> data= fnoStockRepository.findByExchangeAndLiveortest(exchange,"live");
-		if(data==null) {
+		List<FNOStockDetail> data = fnoStockRepository.findByExchangeAndLiveortest(exchange, "live");
+		if (data == null || data.isEmpty()) {
 			throw new TradeScheduleBusinessException("fno stock not present in db");
 		}
 		return data;
 	}
-	
+
+	@Transactional
+	public List<FNOStockSymbolDto> getFnoStockSymbolsByExchange(String exchange) throws TradeScheduleBusinessException {
+		List<FNOStockDetail> data = findByExchange(exchange);
+		return data.stream()
+				.map(symbol -> new FNOStockSymbolDto(symbol.getSymboltoken(), symbol.getTradingsymbol()))
+				.collect(Collectors.toList());
+	}
 	
 	@Transactional	
 	public FNOStockDetail findByStockName(String stockname) throws TradeScheduleBusinessException {

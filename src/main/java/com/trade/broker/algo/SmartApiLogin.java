@@ -4,9 +4,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -45,7 +43,7 @@ import com.trade.broker.constant.TRADEConstants;
 import com.trade.broker.entity.DBTokenDetail;
 import com.trade.broker.entity.TradeEntryStock;
 import com.trade.broker.exception.TradeScheduleBusinessException;
-import com.trade.broker.service.TickPublisher;
+import com.trade.broker.kafka.TickPublisher;
 import com.trade.broker.service.TokenService;
 import com.trade.broker.util.TRADEDateUtil;
 
@@ -53,7 +51,6 @@ import com.trade.broker.util.TRADEDateUtil;
 public class SmartApiLogin {
 
 	private static final Logger log = LoggerFactory.getLogger(SmartApiLogin.class);
-	private static final String MARKET_TICK_TOPIC = "market.tick";
 	public static final String HISTORICAL = "Historical";
 	public static final String MARKET = "Market";
 	public static final String TRADING = "Trading";
@@ -97,7 +94,7 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
             @Override
             public void onLTPArrival(LTP ltp) {
                 if (ltp != null) {
-                    tickPublisher.publish(MARKET_TICK_TOPIC, new JSONObject()
+                    tickPublisher.publish(new JSONObject()
                             .put("event", "LTP")
                             .put("token", ltp.getToken())
                             .put("symbol", symbols.get(ltp.getToken()))
@@ -111,7 +108,7 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
             @Override
             public void onQuoteArrival(Quote quote) {
                 if (quote != null) {
-                    tickPublisher.publish(MARKET_TICK_TOPIC, new JSONObject()
+                    tickPublisher.publish(new JSONObject()
                             .put("event", "QUOTE")
                             .put("token", quote.getToken())
                             .put("symbol", symbols.get(quote.getToken()))
@@ -138,7 +135,7 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
             @Override
             public void onDepthArrival(Depth depth) {
                 if (depth != null) {
-                    tickPublisher.publish(MARKET_TICK_TOPIC, new JSONObject()
+                    tickPublisher.publish( new JSONObject()
                             .put("event", "DEPTH")
                             .put("token", depth.getToken())
                             .toString());
@@ -549,7 +546,6 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 			user.setFeedToken(mTokenSet.getFeedToken());
 
 			System.err.println("Market Re-Logged in successfully!");
-			
 
 			DBTokenDetail newdbtoken = new DBTokenDetail();
 			newdbtoken.setAccesstoken(mTokenSet.getAccessToken());
@@ -559,15 +555,12 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 			newdbtoken.setAppName(TRADEConstants.SMART_API);
 			newdbtoken.setUpdTimestamp(TRADEDateUtil.getCurrentJavaSqlTimestamp());
 			tokenService.saveToken(newdbtoken);
-
 			// getRestData(newdbtoken.getAccesstoken(),getKey().get(SmartApiLogin.MARKET));
-
 			result = "re-login successfully";
 		} else {
 			result = "not re-login! Please login with fresh!";
 		}
 		return result;
-
 	}
 
 	/**
@@ -576,11 +569,8 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 	 * @param apiKey
 	 */
 	public void getRestData(String token, String apiKey) {
-
 		try {
-
 			String accessToken = token;
-
 			// Example endpoint (if exposed by AngleOne)
 			String endpoint = "https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/topGainersLosers";
 
@@ -599,9 +589,7 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 				response.append(inputLine);
 			}
 			in.close();
-
 			System.out.println("Top Gainers/Losers Response: " + response.toString());
-
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -618,8 +606,6 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 			tokenService.saveToken(dbtoken);
 		}
 		smartConnect.logout();
-	
-
 	}
 
 	/**
@@ -629,7 +615,6 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 	 * @throws IOException
 	 */
 	public JSONArray getCandleData(String symboltoken, String interval, String fromdate, String todate) {
-
 		JSONObject requestObejct = new JSONObject();
 		requestObejct.put("exchange", "NSE");
 		requestObejct.put("symboltoken", symboltoken);
@@ -649,9 +634,7 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 	 * @param todate
 	 */
 
-	public JSONArray getOpenIntrestData(String exchange, String symboltoken, String interval, String fromdate,
-			String todate) {
-
+	public JSONArray getOpenIntrestData(String exchange, String symboltoken, String interval, String fromdate,String todate) {
 		JSONObject requestObejct = new JSONObject();
 		requestObejct.put("exchange", exchange);
 		requestObejct.put("symboltoken", symboltoken);
@@ -669,7 +652,6 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 	}
 
 	public JSONObject getOptionChain(String stockName, String expirydate) throws TradeScheduleBusinessException {
-
 		JSONObject requestObejct = new JSONObject();
 		requestObejct.put("name", stockName);
 		requestObejct.put("expirydate", expirydate);
@@ -677,9 +659,7 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 		try {
 			optionGreek = smartConnect.optionGreek(requestObejct);
 		} catch (IOException | SmartAPIException e) {
-
-			throw new TradeScheduleBusinessException("Issue in getOptionChain whilte fetching optionGreek stockName : "
-					+ stockName + " expirydate: " + expirydate + " " + e.getMessage(), e);
+			throw new TradeScheduleBusinessException("Issue in getOptionChain whilte fetching optionGreek stockName : "+ stockName + " expirydate: " + expirydate + " " + e.getMessage(), e);
 		}
 
 		return optionGreek;
@@ -695,16 +675,11 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 	 * @throws IOException
 	 */
 	public JSONObject getLTP(String exchange, String tradingSymbol, String symboltoken) throws TradeScheduleBusinessException {
-
 		JSONObject ltpData = null;
 		try {
 			ltpData = smartConnect.getLTP(exchange, tradingSymbol, symboltoken);
 		} catch (Exception e) {
-			e.printStackTrace();
-			throw new TradeScheduleBusinessException(
-					"Issue in getLTP whilte fetching ltpData exchange : " + exchange + ", tradingSymbol : "
-							+ tradingSymbol + ", symboltoken: " + symboltoken + " " + e.getMessage(),
-					e);	
+			throw new TradeScheduleBusinessException("Issue in getLTP whilte fetching ltpData exchange : " + exchange + ", tradingSymbol : "+ tradingSymbol + ", symboltoken: " + symboltoken + " " + e.getMessage(),e);	
 		}
 
 		return ltpData;
@@ -717,8 +692,7 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 	 * @return
 	 * @throws TradeScheduleBusinessException
 	 */
-	public JSONObject getMarketData(String mode, String searchData, String exchange)
-			throws TradeScheduleBusinessException {
+	public JSONObject getMarketData(String mode, String searchData, String exchange)throws TradeScheduleBusinessException {
 
 		JSONObject response = null;
 		JSONObject payload = new JSONObject();
@@ -732,9 +706,7 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 		try {
 			response = smartConnect.marketData(payload);
 		} catch (IOException | SmartAPIException e) {
-
-			throw new TradeScheduleBusinessException("issue in getMarketData while getting market data exchange : "
-					+ exchange + ", searchData : " + searchData + ", mode: " + mode + " " + e.getMessage(), e);
+			throw new TradeScheduleBusinessException("issue in getMarketData while getting market data exchange : "+ exchange + ", searchData : " + searchData + ", mode: " + mode + " " + e.getMessage(), e);
 		}
 
 		return response;
@@ -749,6 +721,8 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 	 * @param totp
 	 * @return
 	 */
+	
+	@SuppressWarnings("unused")
 	private SmartConnect getSmartConnect(String apiKey, String clientCode, String mPin, String totp) {
 		SmartConnect smartConnect = new SmartConnect(apiKey);
 		User user = smartConnect.generateSession(clientCode, mPin, totp);
@@ -798,7 +772,6 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 			String interval) {
 
 		JSONArray dataList = this.getCandleData(symboltoken, interval, fromdate, todate);
-
 		return dataList != null ? new JSONObject().put("data", dataList) : null;
 	}
 
@@ -820,6 +793,7 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 	private static final long MINUTES = 1 * 60 * 1000L;
 
 	@Scheduled(fixedRate = MINUTES) 
+	@SuppressWarnings("unchecked")
 	public void publishLatestQuotes() {
 		
 		if(smartConnect == null || user == null || user.getFeedToken() == null) {
@@ -827,7 +801,8 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 			return;
 		}
 
-		System.out.println("********* Publishing latest quotes to Kafka topic " + MARKET_TICK_TOPIC);
+		System.out.println("********* Publishing latest quotes to Kafka topic **************" );
+		System.out.println(latestQuotes.size() + " latest quotes to publish.");
 
 		for (Map.Entry<String, Object> entry : latestQuotes.entrySet()) {
 
@@ -837,7 +812,6 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 			//SnapQuote quote = entry.getValue();
 			
 			tickPublisher.publish(
-					MARKET_TICK_TOPIC,
 					new JSONObject()
 							.put("event", "SNAP_QUOTE")
 							.put("token", token)
@@ -857,10 +831,6 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 		}
 	}
 
-	private LocalDateTime toLocalDateTime(long epochMillis) {
-		return Instant.ofEpochMilli(epochMillis)
-				.atZone(ZoneId.systemDefault())
-				.toLocalDateTime();
-	}
+	
 
 }

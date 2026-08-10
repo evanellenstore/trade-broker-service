@@ -44,9 +44,8 @@ public class DBTokenDetail {
 	    @Column(name = "token_expried")
 	    private String tokenexpried;
 	    
-	   
-
-	    
+    	@Column(name = "live_or_backtest")
+    	private String liveOrBacktest;
 	    
 	    @Column(name="UPD_TIMESTAMP")
 		private Timestamp updTimestamp;
@@ -68,14 +67,7 @@ public class DBTokenDetail {
 		@Override
 		public String toString() {
 			return "DBTokenDetail [id=" + id + ", clientId=" + clientId + ", appName=" + appName + ", accesstoken="
-					+ accesstoken + ", refreshtoken=" + refreshtoken + ", feedtoken=" + feedtoken + ", tokenexpried="
-					+ tokenexpried + ", updTimestamp=" + updTimestamp + ", creatTimestamp=" + creatTimestamp + "]";
+				+ accesstoken + ", refreshtoken=" + refreshtoken + ", feedtoken=" + feedtoken + ", tokenexpried="
+				+ tokenexpried + ", liveOrBacktest=" + liveOrBacktest + ", updTimestamp=" + updTimestamp + ", creatTimestamp=" + creatTimestamp + "";
 		}
-
-		
-
-		
-	    
-
-	    
-	}
+}

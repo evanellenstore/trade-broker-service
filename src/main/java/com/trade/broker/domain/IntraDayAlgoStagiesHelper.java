@@ -1108,6 +1108,10 @@ public class IntraDayAlgoStagiesHelper {
 	public String reLoginSmartApi() {
 		return smartApiLogin.proccessReLogin();
 	}
+
+	public String reLoginSmartApi(String ttop, String mode) {
+		return smartApiLogin.proccessReLogin(ttop, mode);
+	}
 	
 
 	

@@ -13,52 +13,62 @@ public class TokenService {
     @Autowired
     private TokenRepository tokenRepository;
 
-	@Transactional
+    @Transactional
     public DBTokenDetail saveToken(DBTokenDetail newDBTokenDetail) {
-    	DBTokenDetail result=null;
-    		DBTokenDetail oldDBTokenDetail=tokenRepository.findByAppNameAndTokenexpired(newDBTokenDetail.getAppName(),"N");
-    		if(oldDBTokenDetail==null) {
-    			
-    			DBTokenDetail expriredDBTokenDetail=tokenRepository.findByAppNameAndTokenexpired(newDBTokenDetail.getAppName(),"Y");	
-    			if(expriredDBTokenDetail!=null) {
-    				expriredDBTokenDetail.setAccesstoken(newDBTokenDetail.getAccesstoken());
-    				expriredDBTokenDetail.setRefreshtoken(newDBTokenDetail.getRefreshtoken());
-    				expriredDBTokenDetail.setTokenexpried(newDBTokenDetail.getTokenexpried());
-        			result=tokenRepository.save(expriredDBTokenDetail);
-    			}else {
-    				newDBTokenDetail.setTokenexpried("N");
-        			result=tokenRepository.save(newDBTokenDetail);
-    			}
-    			
-    		}else {
-    			oldDBTokenDetail.setAccesstoken(newDBTokenDetail.getAccesstoken());
-    			oldDBTokenDetail.setRefreshtoken(newDBTokenDetail.getRefreshtoken());
-    			oldDBTokenDetail.setTokenexpried(newDBTokenDetail.getTokenexpried());
-    			
-    			
-    			
-    			result=tokenRepository.save(oldDBTokenDetail);
-    		}
-    	return result;
-       
+        DBTokenDetail result = null;
+        DBTokenDetail oldDBTokenDetail = tokenRepository.findByAppNameAndTokenexpired(newDBTokenDetail.getAppName(), "N");
+        if (oldDBTokenDetail == null) {
+            DBTokenDetail expriredDBTokenDetail = tokenRepository.findByAppNameAndTokenexpired(newDBTokenDetail.getAppName(), "Y");
+            if (expriredDBTokenDetail != null) {
+                expriredDBTokenDetail.setAccesstoken(newDBTokenDetail.getAccesstoken());
+                expriredDBTokenDetail.setRefreshtoken(newDBTokenDetail.getRefreshtoken());
+                expriredDBTokenDetail.setTokenexpried(newDBTokenDetail.getTokenexpried());
+                if (newDBTokenDetail.getLiveOrBacktest() != null) {
+                    expriredDBTokenDetail.setLiveOrBacktest(newDBTokenDetail.getLiveOrBacktest());
+                }
+                if (newDBTokenDetail.getFeedtoken() != null) {
+                    expriredDBTokenDetail.setFeedtoken(newDBTokenDetail.getFeedtoken());
+                }
+                if (newDBTokenDetail.getClientId() != null) {
+                    expriredDBTokenDetail.setClientId(newDBTokenDetail.getClientId());
+                }
+                result = tokenRepository.save(expriredDBTokenDetail);
+            } else {
+                newDBTokenDetail.setTokenexpried("N");
+                result = tokenRepository.save(newDBTokenDetail);
+            }
+        } else {
+            oldDBTokenDetail.setAccesstoken(newDBTokenDetail.getAccesstoken());
+            oldDBTokenDetail.setRefreshtoken(newDBTokenDetail.getRefreshtoken());
+            oldDBTokenDetail.setTokenexpried(newDBTokenDetail.getTokenexpried());
+            if (newDBTokenDetail.getLiveOrBacktest() != null) {
+                oldDBTokenDetail.setLiveOrBacktest(newDBTokenDetail.getLiveOrBacktest());
+            }
+            if (newDBTokenDetail.getFeedtoken() != null) {
+                oldDBTokenDetail.setFeedtoken(newDBTokenDetail.getFeedtoken());
+            }
+            if (newDBTokenDetail.getClientId() != null) {
+                oldDBTokenDetail.setClientId(newDBTokenDetail.getClientId());
+            }
+            result = tokenRepository.save(oldDBTokenDetail);
+        }
+        return result;
     }
 
-	@Transactional
+    @Transactional
     public DBTokenDetail getTokenAppName(String appName, String expried) {
-    	return tokenRepository.findByAppNameAndTokenexpired(appName, expried);
+        return tokenRepository.findByAppNameAndTokenexpired(appName, expried);
     }
-    
-	@Transactional
+
+    @Transactional
     public DBTokenDetail updateTokenEntity(Long id, DBTokenDetail tokenDetails) {
-    	DBTokenDetail tokenDb = tokenRepository.findById(id).orElseThrow(() -> new RuntimeException("Token not found"));
-    	tokenDb.setAccesstoken(tokenDetails.getAccesstoken());
-    	tokenDb.setRefreshtoken(tokenDetails.getRefreshtoken());
+        DBTokenDetail tokenDb = tokenRepository.findById(id).orElseThrow(() -> new RuntimeException("Token not found"));
+        tokenDb.setAccesstoken(tokenDetails.getAccesstoken());
+        tokenDb.setRefreshtoken(tokenDetails.getRefreshtoken());
         return tokenRepository.save(tokenDb);
     }
-    
-    public void deleteToken(Long id) {
-    	tokenRepository.deleteById(id);
-    }
-    
-}
 
+    public void deleteToken(Long id) {
+        tokenRepository.deleteById(id);
+    }
+}

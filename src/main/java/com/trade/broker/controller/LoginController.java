@@ -24,22 +24,27 @@ public class LoginController {
 	
 
 	@PostMapping("/login/byTtop")
-	public ResponseEntity<String> loginInAPP(@RequestParam String ttop) {
-		DBTokenDetail dBTokenDetail=intraDayAlgoStagiesHelper.loginSmartApi(ttop);
-		System.out.println("==getMaccesstoken===="+dBTokenDetail.getAccesstoken());
-		DBTokenDetail result=tokenService.saveToken(dBTokenDetail);
+	public ResponseEntity<String> loginInAPP(
+			@RequestParam String ttop,
+			@RequestParam(name = "mode", defaultValue = "live") String mode) {
+		DBTokenDetail dBTokenDetail = intraDayAlgoStagiesHelper.loginSmartApi(ttop);
+		dBTokenDetail.setLiveOrBacktest(mode);
+		System.out.println("==getMaccesstoken====" + dBTokenDetail.getAccesstoken());
+		DBTokenDetail result = tokenService.saveToken(dBTokenDetail);
 		//intraDayAlgoStagiesHelper.loginPortalSmartApi(ttop);
-		if(result!=null) {
-			return ResponseEntity.ok("login successfully !");
-		}else {
+		if (result != null) {
+			return ResponseEntity.ok("login successful in " + mode + " mode!");
+		} else {
 			return ResponseEntity.ok("unable to login!");
 		}
 		
 	}
 	
 	@GetMapping("/relogin")
-	public ResponseEntity<String> reloginInAPP() {
-		String result=intraDayAlgoStagiesHelper.reLoginSmartApi();
+	public ResponseEntity<String> reloginInAPP(
+			@RequestParam(name = "ttop", required = false) String ttop,
+			@RequestParam(name = "mode", defaultValue = "live") String mode) {
+		String result = intraDayAlgoStagiesHelper.reLoginSmartApi(ttop, mode);
 		return ResponseEntity.ok(result);
 	}
 	

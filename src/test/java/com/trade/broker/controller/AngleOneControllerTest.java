@@ -54,4 +54,14 @@ class AngleOneControllerTest {
         assertEquals(HttpStatus.BAD_GATEWAY, response.getStatusCode());
         assertTrue(response.getBody().contains("Unable to get Market data"));
     }
+
+    @Test
+    void reloginShouldAcceptTtopAndModeAndReturnHelperResponse() {
+        when(intraDayAlgoStagiesHelper.reLoginSmartApi("705936", "live")).thenReturn("re-login successfully");
+
+        ResponseEntity<String> response = controller.reloginInAPP("705936", "live");
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("re-login successfully", response.getBody());
+    }
 }

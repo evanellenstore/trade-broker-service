@@ -93,11 +93,12 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
         listener = new SmartStreamListener() {
             @Override
             public void onLTPArrival(LTP ltp) {
-                if (ltp != null) {
+                if (ltp != null && ltp.getToken() != null) {
+                    String token = ltp.getToken().getToken();
                     tickPublisher.publish(new JSONObject()
                             .put("event", "LTP")
-                            .put("token", ltp.getToken())
-                            .put("symbol", symbols.get(ltp.getToken()))
+                            .put("token", token)
+                            .put("symbol", symbols.get(token))
                             .put("ltp", ltp.getLastTradedPrice())
                             .toString());
                 }
@@ -107,11 +108,12 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 
             @Override
             public void onQuoteArrival(Quote quote) {
-                if (quote != null) {
+                if (quote != null && quote.getToken() != null) {
+                    String token = quote.getToken().getToken();
                     tickPublisher.publish(new JSONObject()
                             .put("event", "QUOTE")
-                            .put("token", quote.getToken())
-                            .put("symbol", symbols.get(quote.getToken()))
+                            .put("token", token)
+                            .put("symbol", symbols.get(token))
                             .put("ltp", quote.getLastTradedPrice())
                             .put("volume", quote.getVolumeTradedToday())
                             .toString());
@@ -531,8 +533,12 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 	 * 
 	 */
 	public String proccessReLogin() {
+		return proccessReLogin(null, null);
+	}
+
+	public String proccessReLogin(String ttop, String mode) {
 		String result = "";
-		DBTokenDetail dbtoken = tokenService.getTokenAppName(TRADEConstants.SMART_API,TRADEConstants.M_TOKEN_EXPREIED_NO);
+		DBTokenDetail dbtoken = tokenService.getTokenAppName(TRADEConstants.SMART_API, TRADEConstants.M_TOKEN_EXPREIED_NO);
 
 		if (dbtoken != null) {
 			smartConnect = new SmartConnect(getKey().get(SmartApiLogin.APIKEY));
@@ -541,22 +547,35 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 			smartConnect.setRefreshToken(mTokenSet.getRefreshToken());
 			smartConnect.setUserId(mTokenSet.getUserId());
 
-			user.setAccessToken(mTokenSet.getAccessToken());
-			user.setRefreshToken(mTokenSet.getRefreshToken());
-			user.setFeedToken(mTokenSet.getFeedToken());
+			if (user != null) {
+				user.setAccessToken(mTokenSet.getAccessToken());
+				user.setRefreshToken(mTokenSet.getRefreshToken());
+				user.setFeedToken(mTokenSet.getFeedToken());
+			}
 
 			System.err.println("Market Re-Logged in successfully!");
 
-			DBTokenDetail newdbtoken = new DBTokenDetail();
-			newdbtoken.setAccesstoken(mTokenSet.getAccessToken());
-			newdbtoken.setRefreshtoken(mTokenSet.getRefreshToken());
-			newdbtoken.setFeedtoken(mTokenSet.getFeedToken());
-			newdbtoken.setTokenexpried("N");
-			newdbtoken.setAppName(TRADEConstants.SMART_API);
-			newdbtoken.setUpdTimestamp(TRADEDateUtil.getCurrentJavaSqlTimestamp());
-			tokenService.saveToken(newdbtoken);
-			// getRestData(newdbtoken.getAccesstoken(),getKey().get(SmartApiLogin.MARKET));
+			dbtoken.setAccesstoken(mTokenSet.getAccessToken());
+			dbtoken.setRefreshtoken(mTokenSet.getRefreshToken());
+			if (mTokenSet.getFeedToken() != null) {
+				dbtoken.setFeedtoken(mTokenSet.getFeedToken());
+			}
+			dbtoken.setTokenexpried("N");
+			if (mode != null && !mode.isBlank()) {
+				dbtoken.setLiveOrBacktest(mode);
+			}
+			dbtoken.setUpdTimestamp(TRADEDateUtil.getCurrentJavaSqlTimestamp());
+			tokenService.saveToken(dbtoken);
 			result = "re-login successfully";
+		} else if (ttop != null && !ttop.isBlank()) {
+			DBTokenDetail freshToken = proccessMarketLogin(ttop);
+			if (freshToken != null && freshToken.getAccesstoken() != null) {
+				freshToken.setLiveOrBacktest(mode != null && !mode.isBlank() ? mode : "live");
+				tokenService.saveToken(freshToken);
+				result = "login successfully";
+			} else {
+				result = "not re-login! Please login with fresh!";
+			}
 		} else {
 			result = "not re-login! Please login with fresh!";
 		}
@@ -800,6 +819,17 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 			System.err.println("SmartConnect or User or FeedToken is null. Skipping publishing latest quotes.");
 			return;
 		}
+
+
+		DBTokenDetail dbTokenDetail = tokenService.getTokenAppName(TRADEConstants.SMART_API,TRADEConstants.M_TOKEN_EXPREIED_NO);
+		if (dbTokenDetail == null || dbTokenDetail.getLiveOrBacktest() == null
+				|| dbTokenDetail.getLiveOrBacktest().equalsIgnoreCase("backtest")) {
+			System.err.println("Live/backtest mode is not live. Skipping publishing latest quotes.");
+			return;
+		}
+
+
+
 
 		System.out.println("********* Publishing latest quotes to Kafka topic **************" );
 		System.out.println(latestQuotes.size() + " latest quotes to publish.");

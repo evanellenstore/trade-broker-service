@@ -50,8 +50,11 @@ public class AngleOneController {
 	 * @return
 	 */
     @PostMapping("/login/byTtop")
-	public ResponseEntity<String> loginInAPP(@RequestParam String ttop) {
+	public ResponseEntity<String> loginInAPP(
+			@RequestParam String ttop,
+			@RequestParam(name = "mode", defaultValue = "live") String mode) {
 		DBTokenDetail dBTokenDetail=intraDayAlgoStagiesHelper.loginSmartApi(ttop);
+		dBTokenDetail.setLiveOrBacktest(mode);
 		log.debug("Login request received for ttop token");
 		DBTokenDetail result=tokenService.saveToken(dBTokenDetail);
 		//intraDayAlgoStagiesHelper.loginPortalSmartApi(ttop);
@@ -68,8 +71,10 @@ public class AngleOneController {
 	 * @return
 	 */
 	@GetMapping("/relogin")
-	public ResponseEntity<String> reloginInAPP() {
-		String result=intraDayAlgoStagiesHelper.reLoginSmartApi();
+	public ResponseEntity<String> reloginInAPP(
+			@RequestParam(name = "ttop", required = false) String ttop,
+			@RequestParam(name = "mode", defaultValue = "live") String mode) {
+		String result = intraDayAlgoStagiesHelper.reLoginSmartApi(ttop, mode);
 		return ResponseEntity.ok(result);
 	}
 

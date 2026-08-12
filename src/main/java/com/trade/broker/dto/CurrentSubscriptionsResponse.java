@@ -1,6 +1,7 @@
 package com.trade.broker.dto;
 
 import java.util.List;
+import java.util.Map;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -15,5 +16,6 @@ public class CurrentSubscriptionsResponse {
 	
 	private String exchange;
 	private List<String> symbols;
+	private Map<String, String> tokenMap;
 	
 }

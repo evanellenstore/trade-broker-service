@@ -840,22 +840,25 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 			Map<String, String> symbols = (Map<String, String>) latestQuotes.get("symbols");
 			SnapQuote quote = (SnapQuote) latestQuotes.get(token);
 			//SnapQuote quote = entry.getValue();
+
+			//Angle One typically sends prices in paise.
 			
-			tickPublisher.publish(
-					new JSONObject()
+			JSONObject tick = new JSONObject()
 							.put("event", "SNAP_QUOTE")
 							.put("token", token)
 							.put("symbol", symbols.get(token))
-							.put("ltp", quote.getLastTradedPrice())
-							.put("open", quote.getOpenPrice())
-							.put("high", quote.getHighPrice())
-							.put("low", quote.getLowPrice())
+							.put("ltp", quote.getLastTradedPrice() / 100.0)
+							.put("open", quote.getOpenPrice() / 100.0)
+							.put("high", quote.getHighPrice() / 100.0)
+							.put("low", quote.getLowPrice() / 100.0)
 							.put("exchange", quote.getToken().getExchangeType().name())
-							.put("close", quote.getClosePrice())
+							.put("close", quote.getClosePrice() / 100.0)
 							.put("volume", quote.getVolumeTradedToday())
 							//.put("timestamp", toLocalDateTime(quote.getExchangeFeedTimeEpochMillis()))
-							.put("timestamp", LocalDateTime.now())
-							.toString());
+							.put("timestamp", LocalDateTime.now());
+
+				//System.out.println("Tick before publish: " + tick.toString());
+				tickPublisher.publish(tick.toString());
 
 			log.info("Published {}", token);
 		}

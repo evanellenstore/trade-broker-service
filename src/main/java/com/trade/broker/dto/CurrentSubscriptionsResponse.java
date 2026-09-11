@@ -17,5 +17,6 @@ public class CurrentSubscriptionsResponse {
 	private String exchange;
 	private List<String> symbols;
 	private Map<String, String> tokenMap;
+	private List<SubscriptionBatchResponse> subscriptions;
 	
 }

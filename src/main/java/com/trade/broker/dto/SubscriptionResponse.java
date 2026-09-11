@@ -16,5 +16,8 @@ public class SubscriptionResponse {
 	private String status;
 	private String message;
 	private List<String> subscribedSymbols;
+	private String subscriptionId;
+	private String subscriptionName;
+	private java.sql.Timestamp createdAt;
 	
 }

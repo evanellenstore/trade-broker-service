@@ -14,6 +14,7 @@ import lombok.Setter;
 public class SubscriptionRequest {
 	
 	private String exchange;
+	private String subscriptionName;
 	private Map<String, String> symbols;
 	
 }

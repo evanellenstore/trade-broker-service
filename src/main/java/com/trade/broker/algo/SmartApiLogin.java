@@ -72,6 +72,9 @@ public class SmartApiLogin {
 	private TickPublisher tickPublisher;
 
 	private final ConcurrentHashMap<String, Object> latestQuotes = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, String> activeSymbols = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, String> activeSubscriptionIds = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, String> activeSubscriptionNames = new ConcurrentHashMap<>();
 /**
  * 
  * @param listOfTokens
@@ -85,8 +88,15 @@ public class SmartApiLogin {
 	 * @param exchange
 	 * @throws WebSocketException
 	 */
-public void subcribeToSmartStreamConnect(List<String> listOfTokens, String exchange, Map<String, String> symbols) throws WebSocketException {
-      
+public void subcribeToSmartStreamConnect(List<String> listOfTokens, String exchange, Map<String, String> symbols,
+		Map<String, String> subscriptionIds, Map<String, String> subscriptionNames) throws WebSocketException {
+	activeSymbols.clear();
+	activeSymbols.putAll(symbols);
+	activeSubscriptionIds.clear();
+	activeSubscriptionIds.putAll(subscriptionIds);
+	activeSubscriptionNames.clear();
+	activeSubscriptionNames.putAll(subscriptionNames);
+	latestQuotes.clear();
         String feedToken = user.getFeedToken();
 
         // --- 2. Define the listener ---
@@ -95,10 +105,13 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
             public void onLTPArrival(LTP ltp) {
                 if (ltp != null && ltp.getToken() != null) {
                     String token = ltp.getToken().getToken();
+					if (!activeSymbols.containsKey(token)) return;
                     tickPublisher.publish(new JSONObject()
                             .put("event", "LTP")
                             .put("token", token)
-                            .put("symbol", symbols.get(token))
+							.put("symbol", activeSymbols.get(token))
+							.put("subscriptionId", activeSubscriptionIds.get(token))
+							.put("subscriptionName", activeSubscriptionNames.get(token))
                             .put("ltp", ltp.getLastTradedPrice())
                             .toString());
                 }
@@ -110,10 +123,13 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
             public void onQuoteArrival(Quote quote) {
                 if (quote != null && quote.getToken() != null) {
                     String token = quote.getToken().getToken();
+					if (!activeSymbols.containsKey(token)) return;
                     tickPublisher.publish(new JSONObject()
                             .put("event", "QUOTE")
                             .put("token", token)
-                            .put("symbol", symbols.get(token))
+							.put("symbol", activeSymbols.get(token))
+							.put("subscriptionId", activeSubscriptionIds.get(token))
+							.put("subscriptionName", activeSubscriptionNames.get(token))
                             .put("ltp", quote.getLastTradedPrice())
                             .put("volume", quote.getVolumeTradedToday())
                             .toString());
@@ -128,18 +144,21 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
                     String token = snapQuote.getToken().getToken()
                             .replace("\u0000", "")
                             .trim();
+								if (!activeSymbols.containsKey(token)) return;
 
                     latestQuotes.put(token, snapQuote);
-                    latestQuotes.put("symbols", symbols);
                 }
             }
 
             @Override
             public void onDepthArrival(Depth depth) {
-                if (depth != null) {
+				if (depth != null && depth.getToken() != null
+						&& activeSymbols.containsKey(depth.getToken().getToken())) {
                     tickPublisher.publish( new JSONObject()
                             .put("event", "DEPTH")
                             .put("token", depth.getToken())
+							.put("subscriptionId", activeSubscriptionIds.get(depth.getToken().getToken()))
+							.put("subscriptionName", activeSubscriptionNames.get(depth.getToken().getToken()))
                             .toString());
                 }
                 log.info("Received depth update for token {}", depth != null ? depth.getToken() : null);
@@ -812,7 +831,6 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 	private static final long MINUTES = 1 * 60 * 1000L;
 
 	@Scheduled(fixedRate = MINUTES) 
-	@SuppressWarnings("unchecked")
 	public void publishLatestQuotes() {
 		
 		if(smartConnect == null || user == null || user.getFeedToken() == null) {
@@ -837,7 +855,9 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 		for (Map.Entry<String, Object> entry : latestQuotes.entrySet()) {
 
 			String token = entry.getKey();
-			Map<String, String> symbols = (Map<String, String>) latestQuotes.get("symbols");
+			if (!activeSymbols.containsKey(token) || !(entry.getValue() instanceof SnapQuote)) {
+				continue;
+			}
 			SnapQuote quote = (SnapQuote) latestQuotes.get(token);
 			//SnapQuote quote = entry.getValue();
 
@@ -846,7 +866,9 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 			JSONObject tick = new JSONObject()
 							.put("event", "SNAP_QUOTE")
 							.put("token", token)
-							.put("symbol", symbols.get(token))
+							.put("symbol", activeSymbols.get(token))
+							.put("subscriptionId", activeSubscriptionIds.get(token))
+							.put("subscriptionName", activeSubscriptionNames.get(token))
 							.put("ltp", quote.getLastTradedPrice() / 100.0)
 							.put("open", quote.getOpenPrice() / 100.0)
 							.put("high", quote.getHighPrice() / 100.0)

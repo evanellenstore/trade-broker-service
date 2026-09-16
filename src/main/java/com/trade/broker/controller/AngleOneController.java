@@ -131,23 +131,17 @@ public class AngleOneController {
 	@GetMapping("/candlesData")
 	public ResponseEntity<?> getCandleData(@RequestParam String tradingSymbol,	@RequestParam String symbolToken,
 			@RequestParam String fromDate,@RequestParam String toDate,@RequestParam String interval) {
-
 		try {
-
 			JSONObject response = smartApiLogin.getHistoricalData(tradingSymbol,symbolToken,fromDate,toDate,interval);
-
 			if (response == null) {
 				return ResponseEntity.badRequest()
 						.body("Unable to fetch historical data. Please login again.");
 			}
-
 			return ResponseEntity.ok(response.toString(4));
 		} catch (Exception e) {
 			return ResponseEntity.internalServerError().body(e.getMessage());
 		}
 	}
-
-
 	/**
 	 * 
 	 * @param exchange

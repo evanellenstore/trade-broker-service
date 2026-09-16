@@ -105,15 +105,7 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
             public void onLTPArrival(LTP ltp) {
                 if (ltp != null && ltp.getToken() != null) {
                     String token = ltp.getToken().getToken();
-					if (!activeSymbols.containsKey(token)) return;
-                    tickPublisher.publish(new JSONObject()
-                            .put("event", "LTP")
-                            .put("token", token)
-							.put("symbol", activeSymbols.get(token))
-							.put("subscriptionId", activeSubscriptionIds.get(token))
-							.put("subscriptionName", activeSubscriptionNames.get(token))
-                            .put("ltp", ltp.getLastTradedPrice())
-                            .toString());
+					System.out.println(" ----- Received LTP update for token ------ " + token);
                 }
                 log.info("Received LTP update for token {}", ltp != null ? ltp.getToken() : null);
                 System.out.println("Received LTP update for token " + (ltp != null ? ltp.getToken() : null));
@@ -123,16 +115,8 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
             public void onQuoteArrival(Quote quote) {
                 if (quote != null && quote.getToken() != null) {
                     String token = quote.getToken().getToken();
-					if (!activeSymbols.containsKey(token)) return;
-                    tickPublisher.publish(new JSONObject()
-                            .put("event", "QUOTE")
-                            .put("token", token)
-							.put("symbol", activeSymbols.get(token))
-							.put("subscriptionId", activeSubscriptionIds.get(token))
-							.put("subscriptionName", activeSubscriptionNames.get(token))
-                            .put("ltp", quote.getLastTradedPrice())
-                            .put("volume", quote.getVolumeTradedToday())
-                            .toString());
+					System.out.println(" ----- Received Quote update for token ------ " + token);
+                    
                 }
                 log.info("Received quote update for token {}", quote != null ? quote.getToken() : null);
                 System.out.println("Received quote update for token " + (quote != null ? quote.getToken() : null));
@@ -141,11 +125,8 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
             @Override
             public void onSnapQuoteArrival(SnapQuote snapQuote) {
                 if (snapQuote != null && snapQuote.getToken() != null) {
-                    String token = snapQuote.getToken().getToken()
-                            .replace("\u0000", "")
-                            .trim();
-								if (!activeSymbols.containsKey(token)) return;
-
+                    String token = snapQuote.getToken().getToken().replace("\u0000", "").trim();
+					if (!activeSymbols.containsKey(token)) return;
                     latestQuotes.put(token, snapQuote);
                 }
             }
@@ -154,12 +135,7 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
             public void onDepthArrival(Depth depth) {
 				if (depth != null && depth.getToken() != null
 						&& activeSymbols.containsKey(depth.getToken().getToken())) {
-                    tickPublisher.publish( new JSONObject()
-                            .put("event", "DEPTH")
-                            .put("token", depth.getToken())
-							.put("subscriptionId", activeSubscriptionIds.get(depth.getToken().getToken()))
-							.put("subscriptionName", activeSubscriptionNames.get(depth.getToken().getToken()))
-                            .toString());
+                    System.out.println(" ----- Received Depth update for token ------ " + depth.getToken().getToken());
                 }
                 log.info("Received depth update for token {}", depth != null ? depth.getToken() : null);
                 System.out.println("Received depth update for token " + (depth != null ? depth.getToken() : null));
@@ -859,6 +835,7 @@ public void subcribeToSmartStreamConnect(List<String> listOfTokens, String excha
 				continue;
 			}
 			SnapQuote quote = (SnapQuote) latestQuotes.get(token);
+			latestQuotes.remove(token);
 			//SnapQuote quote = entry.getValue();
 
 			//Angle One typically sends prices in paise.

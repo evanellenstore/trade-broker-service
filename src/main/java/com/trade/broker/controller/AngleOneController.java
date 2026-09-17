@@ -78,16 +78,6 @@ public class AngleOneController {
 		return ResponseEntity.ok(result);
 	}
 
-
-
-
-
-	//Historical │
-     // │ Orders     │
-     // │ Positions  │
-      //│ Holdings 
-	
-	
 	
 	/**
 	 * 
@@ -142,12 +132,14 @@ public class AngleOneController {
 			return ResponseEntity.internalServerError().body(e.getMessage());
 		}
 	}
+
 	/**
 	 * 
 	 * @param exchange
 	 * @param symboltoken
 	 * @return
 	 */
+	
 	@GetMapping("/marketData")
 	public ResponseEntity<String> getMarketData(@RequestParam String exchange,
 		 @RequestParam String symboltoken,@RequestParam String mode) 
@@ -162,15 +154,13 @@ public class AngleOneController {
 		return ResponseEntity.ok(marketDataObject.toString());	
 	}
 	
-
-
-
 	/**
 	 * Subscribe to symbols for a given exchange
 	 * POST /api/v1/broker/subscriptions
 	 * @param request SubscriptionRequest with exchange and list of symbols
 	 * @return SubscriptionResponse with status and subscribed symbols
 	 */
+
 	@PostMapping("/subscriptions")
 	public ResponseEntity<SubscriptionResponse> subscribe(@RequestBody SubscriptionRequest request) {
 		try {
@@ -197,6 +187,7 @@ public class AngleOneController {
 	 * @param request SubscriptionRequest with exchange and list of symbols
 	 * @return SubscriptionResponse with status
 	 */
+
 	@DeleteMapping("/subscriptions")
 	public ResponseEntity<SubscriptionResponse> unsubscribe(@RequestBody SubscriptionRequest request) {
 		try {
@@ -223,6 +214,7 @@ public class AngleOneController {
 	 * @param exchange The exchange name
 	 * @return CurrentSubscriptionsResponse with exchange and subscribed symbols
 	 */
+
 	@GetMapping("/subscriptions")
 	public ResponseEntity<CurrentSubscriptionsResponse> getCurrentSubscriptions(@RequestParam String exchange) {
 		try {
@@ -234,6 +226,12 @@ public class AngleOneController {
 		}
 	}
 
+	/**
+	 * 
+	 * @param subscriptionId
+	 * @return
+	 */
+
 	@PostMapping("/subscriptions/{subscriptionId}/start")
 	public ResponseEntity<SubscriptionResponse> startSubscription(@PathVariable String subscriptionId) {
 		try {
@@ -243,6 +241,13 @@ public class AngleOneController {
 			return ResponseEntity.internalServerError().body(null);
 		}
 	}
+
+	/**
+	 * 
+	 * @param subscriptionId
+	 * @param request
+	 * @return
+	 */
 
 	@PutMapping("/subscriptions/{subscriptionId}")
 	public ResponseEntity<SubscriptionResponse> updateSubscription(@PathVariable String subscriptionId,
@@ -254,6 +259,12 @@ public class AngleOneController {
 			return ResponseEntity.internalServerError().body(null);
 		}
 	}
+
+	/**
+	 * 
+	 * @param subscriptionId
+	 * @return
+	 */
 
 	@DeleteMapping("/subscriptions/{subscriptionId}")
 	public ResponseEntity<SubscriptionResponse> deleteSubscription(@PathVariable String subscriptionId) {
